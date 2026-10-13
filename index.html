@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LSW_DashBi</title>
+  <meta name="description" content="LSW_DashBi — portal de relatórios com um estúdio para criar dashboards sem código. Demonstração com dados fictícios.">
+  <link rel="icon" type="image/png" href="img/favicon.png">
+  <!-- Toda a aparência (cores, tamanhos, posições) fica no style.css -->
+  <link rel="stylesheet" href="style.css">
+  <!-- Estilos do Estúdio (fase 3) -->
+  <link rel="stylesheet" href="estudio.css">
+  <!-- LSW: paletas, página pública, tutorial e passo a passo guiado (vem por último para valer sobre os outros) -->
+  <link rel="stylesheet" href="lsw.css">
+</head>
+<body>
+
+<!--
+  MAPA DA PÁGINA
+  1. TELA DE LOGIN ............ #login-screen
+  2. SISTEMA (após o login) ... #app-shell
+       2.1 Menu lateral ....... .sidebar
+       2.2 Cabeçalho .......... .topbar
+       2.3 Conteúdo ........... .main-area  (Dashboard · Relatórios · Usuários · Configurações)
+  3. VISUALIZADOR DE RELATÓRIO  #viewer-overlay
+  3B. PAINEL CSAT ............. #csat-overlay (guias, filtros, importação)
+  4. JANELAS (modais) ......... Descontinuados · Relatório · Usuário · Esqueci senha · Trocar senha · Resetar senha
+  5. AVISO (toast) ............ #toast
+  6. SCRIPTS .................. script.js
+-->
+
+<!-- ════════════════════════════════════════════════════════════════
+     1. TELA DE LOGIN
+     ════════════════════════════════════════════════════════════════ -->
+<!-- ── 0. PÁGINA PÚBLICA (portfólio): Apresentação e Tutorial, antes de entrar. Conteúdo desenhado pelo lsw-app.js ── -->
+<div id="lsw-publico">
+  <header class="lsw-pub-topo">
+    <button class="lsw-marca" onclick="lswPublico('apresentacao')">
+      <img class="lsw-marca-icone" src="img/logo-icone-aurora.png" alt="">
+      <span class="lsw-marca-nome">LSW<span>_</span>DashBi</span>
+    </button>
+    <nav class="lsw-pub-nav">
+      <button data-pub="apresentacao" onclick="lswPublico('apresentacao')">Apresentação</button>
+      <button data-pub="tutorial" onclick="lswPublico('tutorial')">Tutorial</button>
+      <button class="lsw-btn-entrar" onclick="lswIrParaLogin()">Entrar na demonstração</button>
+    </nav>
+  </header>
+  <div id="lsw-publico-conteudo"></div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     1. TELA DE LOGIN (demonstração: entrar com um clique como Administrador ou Usuário)
+     ════════════════════════════════════════════════════════════════ -->
+<div id="login-screen" style="display:none">
+  <div class="lsw-login-fundo" aria-hidden="true"></div>
+  <div class="lsw-login-grade">
+    <div class="lsw-login-visual">
+      <img class="lsw-login-logo" src="img/logo-completo-aurora.png" alt="Logic Synapse Web">
+      <p class="lsw-login-frase">Dos dados brutos ao relatório pronto — <em>sem escrever código</em>.</p>
+    </div>
+
+    <div class="login-card lsw-login-card">
+      <div class="kicker">LSW_DashBi · demonstração</div>
+      <p class="lsw-login-lead">Escolha como quer entrar. Os dados são fictícios e ficam guardados só neste navegador.</p>
+
+      <div class="lsw-login-rapido">
+        <button class="lsw-rapido" onclick="lswEntrarDemo('admin')">
+          <b>Entrar como Administrador</b>
+          <span>Cria relatórios no Estúdio, publica e gerencia usuários</span>
+        </button>
+        <button class="lsw-rapido" onclick="lswEntrarDemo('usuario')">
+          <b>Entrar como Usuário</b>
+          <span>Só lê os relatórios publicados</span>
+        </button>
+      </div>
+
+      <div class="login-divider"></div>
+
+      <div class="login-error" id="login-error">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="13"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span>Usuário ou senha inválidos.</span>
+      </div>
+      <div class="field">
+        <label for="login-user">Ou entre com e-mail e senha</label>
+        <div class="input-wrap">
+          <svg class="leading" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <input id="login-user" class="caixa-baixa" type="text" placeholder="admin@lsw.demo" value="">
+        </div>
+      </div>
+      <div class="field">
+        <div class="input-wrap">
+          <svg class="leading" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+          <input id="login-pass" type="password" class="has-trailing" placeholder="senha: demo123" value="">
+          <svg class="trailing" onclick="togglePassword()" id="pass-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+        </div>
+      </div>
+      <div class="remember-row">
+        <button type="button" class="link-btn" onclick="abrirEsqueciSenha()">Esqueci minha senha</button>
+      </div>
+      <button class="btn btn-primary" onclick="doLogin()">Entrar</button>
+
+      <div class="lsw-login-voltar">
+        <button type="button" class="link-btn" onclick="lswPublico('apresentacao')">← Voltar para a apresentação</button>
+      </div>
+      <div class="login-footer">Logic Synapse Web © 2026</div>
+    </div>
+  </div>
+</div>
+<!-- ═══ FIM 1. TELA DE LOGIN ═══ -->
+
+
+<!-- ════════════════════════════════════════════════════════════════
+     2. SISTEMA (aparece depois do login)
+     ════════════════════════════════════════════════════════════════ -->
+<div id="app-shell">
+
+  <!-- ── 2.1 MENU LATERAL (sidebar): logo, seta de recolher e navegação ── -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-top">
+      <img id="sidebar-logo" class="lsw-sidebar-icone" src="img/logo-icone-aurora.png" alt="LSW">
+      <span class="lsw-marca-nome lsw-sidebar-nome">LSW<span>_</span>DashBi</span>
+    </div>
+    <!-- Seta de recolher/expandir o menu: fica "montada" na divisa entre o menu lateral e o cabeçalho -->
+    <button class="collapse-btn" onclick="toggleSidebar()" title="Recolher / expandir menu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+
+    <nav class="sidebar-nav">
+      <!-- Dashboard escondido até a versão 2.0 (o código continua aqui; para reativar, apague o style="display:none") -->
+      <button class="nav-item" data-view="dashboard" onclick="switchView('dashboard')" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        <span class="label">Dashboard</span>
+      </button>
+      <button class="nav-item active" data-view="reports" onclick="switchView('reports')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="label">Relatórios</span>
+      </button>
+      <button class="nav-item" data-view="users" id="nav-users" onclick="switchView('users')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke-linecap="round"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke-linecap="round"/></svg>
+        <span class="label">Usuários</span>
+        <!-- Contador de pedidos de reset de senha pendentes (só aparece quando > 0) -->
+        <span class="nav-badge" id="nav-reset-badge" style="display:none" title="Pedidos de reset de senha">0</span>
+      </button>
+      <!-- Estúdio (fase 3): bases de dados para criar relatórios — só admin (controlado em entrarNoSistema) -->
+      <button class="nav-item" data-view="estudio" id="nav-estudio" onclick="switchView('estudio')" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>
+        <span class="label">Estúdio</span>
+      </button>
+      <!-- LSW: Apresentação da ferramenta e Tutorial do Estúdio (para todos) -->
+      <button class="nav-item" data-view="apresentacao" onclick="switchView('apresentacao')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4" stroke-linecap="round"/><path d="M10 8.5v5l4-2.5z" stroke-linejoin="round"/></svg>
+        <span class="label">Apresentação</span>
+      </button>
+      <button class="nav-item" data-view="tutorial" onclick="switchView('tutorial')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 5.5A2.5 2.5 0 0 1 4.5 3H11v17H4.5A2.5 2.5 0 0 0 2 22.5zM22 5.5A2.5 2.5 0 0 0 19.5 3H13v17h6.5a2.5 2.5 0 0 1 2.5 2.5z" stroke-linejoin="round"/></svg>
+        <span class="label">Tutorial</span>
+      </button>
+      <!-- Configurações: preferências pessoais (para todos os perfis) -->
+      <button class="nav-item" data-view="settings" onclick="switchView('settings')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span class="label">Configurações</span>
+      </button>
+    </nav>
+  </aside>
+  <!-- ── fim 2.1 MENU LATERAL ── -->
+
+  <!-- ── 2.2 CABEÇALHO (topbar): título da seção, tema claro/escuro, usuário e Sair ── -->
+  <div class="topbar" id="topbar">
+    <h2 id="session-title">Relatórios</h2>
+    <div class="topbar-right">
+      <button class="theme-toggle" onclick="toggleTheme()" title="Alternar tema">
+        <svg id="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" stroke-linecap="round"/></svg>
+        <svg id="theme-icon-moon" class="hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8Z" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="user-chip">
+        <div class="avatar" id="user-avatar">A</div>
+        <div class="who">
+          <div class="name" id="user-name">Administrador</div>
+          <div class="role" id="user-role-label">Perfil: Administrador</div>
+        </div>
+      </div>
+      <button class="btn-icon logout-btn" onclick="doLogout()" title="Sair">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke-linecap="round"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+    </div>
+  </div>
+  <!-- ── fim 2.2 CABEÇALHO ── -->
+
+  <!-- ── 2.3 CONTEÚDO (container): só uma seção aparece por vez (switchView) ── -->
+  <main class="main-area" id="main-area">
+    <div class="content">
+
+      <!-- ┌─ Seção DASHBOARD (escondida até a versão 2.0) ─┐ -->
+      <section id="view-dashboard" class="hidden">
+        <div class="page-head">
+          <div>
+            <h1 id="dash-greeting">Bem-vindo de volta</h1>
+            <p>Resumo do seu portal de relatórios.</p>
+          </div>
+        </div>
+
+        <div class="stat-grid" id="stat-grid"></div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Atividade recente</h3>
+          </div>
+          <div class="panel-body" id="activity-list"></div>
+        </div>
+      </section>
+      <!-- └─ fim Seção DASHBOARD ─┘ -->
+
+      <!-- ┌─ Seção RELATÓRIOS: botões, busca e cards (preenchidos por renderReports) ─┐ -->
+      <section id="view-reports">
+        <div class="page-head">
+          <div>
+            <p id="reports-sub">Todos os relatórios publicados.</p>
+          </div>
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <!-- Só aparece para o admin (controlado em renderReports) -->
+            <button class="btn btn-ghost" id="btn-discontinued" style="width:auto; display:none;" onclick="openDiscontinuedModal()">
+              Descontinuados (<span id="discontinued-count">0</span>)
+            </button>
+            <!-- Painel CSAT (2.0): só aparece para o admin enquanto o card ainda não existe.
+                 O primeiro "Salvar" dentro do painel cria o card; depois ele é aberto pelo card. -->
+            <button class="btn btn-ghost" id="btn-csat-novo" style="width:auto; display:none;" onclick="abrirPainelCsat()">
+              Criar painel CSAT
+            </button>
+            <button class="btn btn-primary" id="btn-new-report" style="width:auto;" onclick="openReportModal()">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Publicar relatório
+            </button>
+          </div>
+        </div>
+
+        <div class="grid-toolbar">
+          <div class="search-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input class="caixa-alta" type="text" placeholder="Buscar relatório..." oninput="renderReports(this.value)">
+          </div>
+        </div>
+
+        <div class="reports-grid" id="reports-grid"></div>
+      </section>
+      <!-- └─ fim Seção RELATÓRIOS ─┘ -->
+
+      <!-- ┌─ Seção USUÁRIOS (só admin): tabela preenchida por renderUsers ─┐ -->
+      <section id="view-users" class="hidden">
+        <div class="page-head">
+          <div>
+            <p>Gerencie os acessos ao portal.</p>
+          </div>
+          <button class="btn btn-primary" style="width:auto;" onclick="openUserModal()">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Novo usuário
+          </button>
+        </div>
+
+        <div class="panel">
+          <div class="panel-body" style="padding-top:16px;">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Usuário</th>
+                    <th>Matrícula</th>
+                    <th>Perfil</th>
+                    <th>Status</th>
+                    <th class="col-criado">Criado em</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="users-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+      <!-- └─ fim Seção USUÁRIOS ─┘ -->
+
+      <!-- ┌─ Seção ESTÚDIO (só admin): lista de bases e assistente de carga. Tudo desenhado pelo estudio.js ─┐ -->
+      <section id="view-estudio" class="hidden">
+        <div id="estudio-conteudo"></div>
+      </section>
+      <!-- └─ fim Seção ESTÚDIO ─┘ -->
+
+      <!-- ┌─ Seção CONFIGURAÇÕES: preferências pessoais, guardadas NESTE navegador.
+              Só mudam a aparência; não alteram dados nem funções do sistema. ─┐ -->
+      <section id="view-settings" class="hidden">
+        <div class="page-head">
+          <div>
+            <p>Personalize a aparência do portal. As escolhas ficam salvas neste navegador.</p>
+          </div>
+        </div>
+
+        <div class="settings-list">
+          <div class="panel">
+            <div class="panel-title">Aparência</div>
+            <div class="setting-row">
+              <div>
+                <div class="s-label">Tema</div>
+                <div class="s-sub">"Automático" segue o tema do Windows.</div>
+              </div>
+              <div class="seg">
+                <button class="seg-btn" data-pref="tema" data-valor="escuro" onclick="salvarPref('tema','escuro')">Escuro</button>
+                <button class="seg-btn" data-pref="tema" data-valor="claro" onclick="salvarPref('tema','claro')">Claro</button>
+                <button class="seg-btn" data-pref="tema" data-valor="automatico" onclick="salvarPref('tema','automatico')">Automático</button>
+              </div>
+            </div>
+            <div class="setting-row">
+              <div>
+                <div class="s-label">Paleta de cores</div>
+                <div class="s-sub">Cada paleta acompanha uma versão da logo.</div>
+              </div>
+              <div class="seg">
+                <button class="seg-btn" data-pref="paleta" data-valor="aurora" onclick="salvarPref('paleta','aurora')"><i class="lsw-bolinha aurora"></i>Aurora</button>
+                <button class="seg-btn" data-pref="paleta" data-valor="brasa" onclick="salvarPref('paleta','brasa')"><i class="lsw-bolinha brasa"></i>Brasa</button>
+                <button class="seg-btn" data-pref="paleta" data-valor="oceano" onclick="salvarPref('paleta','oceano')"><i class="lsw-bolinha oceano"></i>Oceano</button>
+              </div>
+            </div>
+            <div class="setting-row">
+              <div>
+                <div class="s-label">Tamanho da fonte</div>
+                <div class="s-sub">"Grande" é o tamanho original do sistema.</div>
+              </div>
+              <div class="seg">
+                <button class="seg-btn" data-pref="fonte" data-valor="pequena" onclick="salvarPref('fonte','pequena')">Pequena</button>
+                <button class="seg-btn" data-pref="fonte" data-valor="padrao" onclick="salvarPref('fonte','padrao')">Padrão</button>
+                <button class="seg-btn" data-pref="fonte" data-valor="grande" onclick="salvarPref('fonte','grande')">Grande</button>
+              </div>
+            </div>
+            <div class="font-preview">Exemplo: Relatório de vendas · atualizado hoje.</div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-title">Menu lateral</div>
+            <div class="setting-row">
+              <div>
+                <div class="s-label">Ao entrar no sistema</div>
+                <div class="s-sub">Recolhido mostra só os ícones e deixa mais espaço para os relatórios.</div>
+              </div>
+              <div class="seg">
+                <button class="seg-btn" data-pref="menu" data-valor="expandido" onclick="salvarPref('menu','expandido')">Expandido</button>
+                <button class="seg-btn" data-pref="menu" data-valor="recolhido" onclick="salvarPref('menu','recolhido')">Recolhido</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-title">Demonstração</div>
+            <div class="setting-row">
+              <div>
+                <div class="s-label">Começar do zero</div>
+                <div class="s-sub">Apaga tudo o que foi feito nesta demonstração (bases, relatórios, usuários) e volta aos dados de exemplo.</div>
+              </div>
+              <button class="btn btn-ghost" style="width:auto;" onclick="lswZerarDemo()">Zerar demonstração</button>
+            </div>
+          </div>
+
+          <div>
+            <button class="btn btn-ghost" style="width:auto;" onclick="restaurarPrefs()">Restaurar padrões</button>
+          </div>
+        </div>
+      </section>
+      <!-- └─ fim Seção CONFIGURAÇÕES ─┘ -->
+
+      <!-- ┌─ LSW: Apresentação e Tutorial (conteúdo desenhado pelo lsw-app.js) ─┐ -->
+      <section id="view-apresentacao" class="hidden"><div id="lsw-apresentacao-app"></div></section>
+      <section id="view-tutorial" class="hidden"><div id="lsw-tutorial-app"></div></section>
+
+    </div>
+  </main>
+  <!-- ── fim 2.3 CONTEÚDO ── -->
+</div>
+<!-- ═══ FIM 2. SISTEMA ═══ -->
+
+
+<!-- ════════════════════════════════════════════════════════════════
+     3. VISUALIZADOR DE RELATÓRIO (tela cheia, por cima de tudo)
+     ════════════════════════════════════════════════════════════════ -->
+<div class="viewer-overlay" id="viewer-overlay">
+  <!-- Menu flutuante no canto superior direito: o botão abre/fecha o painel com o nome e o X -->
+  <div class="viewer-menu" id="viewer-menu">
+    <button class="viewer-menu-btn" onclick="toggleViewerMenu()" title="Opções do relatório">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+    </button>
+    <div class="viewer-menu-panel">
+      <div>
+        <div class="vm-title" id="viewer-title">Relatório</div>
+        <div class="vm-sub" id="viewer-sub">Power BI</div>
+      </div>
+      <button class="btn-icon" onclick="closeViewer()" title="Fechar relatório (Esc)">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+  </div>
+  <div class="viewer-frame">
+    <div class="viewer-placeholder" id="viewer-placeholder">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 19V9M10 19V5M16 19v-7"/></svg>
+      <div class="vp-title" id="viewer-desc">O relatório Power BI será exibido aqui via embed (iframe) quando o link de publicação for configurado.</div>
+    </div>
+    <iframe class="viewer-iframe" id="viewer-iframe" allowfullscreen></iframe>
+  </div>
+</div>
+<!-- ═══ FIM 3. VISUALIZADOR ═══ -->
+
+
+<!-- ════════════════════════════════════════════════════════════════
+     3B. PAINEL CSAT (versão 2.0 · tela cheia, feito no próprio sistema)
+         Topo: título · guias · meta · Exportar · Salvar (admin) · X
+         Faixa de filtros logo abaixo; o conteúdo da guia escolhida ocupa o resto.
+         Tudo é preenchido pelo script.js (seção "painel CSAT").
+     ════════════════════════════════════════════════════════════════ -->
+<div class="csat-overlay" id="csat-overlay">
+  <header class="csat-top">
+    <div class="csat-brand">
+      <div class="csat-title">Painel <b>CSAT</b></div>
+      <div class="csat-sub" id="csat-atualizado">Carregando...</div>
+    </div>
+
+    <nav class="csat-tabs" id="csat-tabs">
+      <button class="csat-tab active" data-aba="geral" onclick="csatAba('geral')">Visão Geral</button>
+      <button class="csat-tab" data-aba="op" onclick="csatAba('op')">Operador</button>
+      <button class="csat-tab" data-aba="sup" onclick="csatAba('sup')">Supervisor</button>
+      <button class="csat-tab" data-aba="oper" onclick="csatAba('oper')">Operação</button>
+      <!-- Só para o admin -->
+      <button class="csat-tab so-admin" data-aba="imp" onclick="csatAba('imp')">Importação</button>
+    </nav>
+
+    <div class="csat-actions">
+      <!-- Meta: o admin ajusta (e grava ao Salvar); o usuário só vê -->
+      <div class="csat-meta" title="Meta de CSAT">
+        <span class="csat-meta-label">Meta</span>
+        <button class="so-admin" onclick="csatSetMeta(csat.meta - 1)" title="Diminuir">−</button>
+        <input id="csat-meta" type="number" min="0" max="100" value="90" onchange="csatSetMeta(+this.value)">
+        <span>%</span>
+        <button class="so-admin" onclick="csatSetMeta(csat.meta + 1)" title="Aumentar">+</button>
+      </div>
+      <button class="btn btn-ghost btn-small" onclick="csatExportarExcel()" title="Baixa as tabelas com os filtros atuais">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
+        Exportar Excel
+      </button>
+      <button class="btn btn-primary btn-small so-admin" id="csat-salvar" onclick="csatSalvar()" title="Grava a base importada e a meta no banco">Salvar</button>
+      <button class="btn-icon" onclick="fecharPainelCsat()" title="Fechar painel (Esc)">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Filtros globais: valem para todas as guias (lista vazia = todos) -->
+  <div class="csat-filtros" id="csat-filtros">
+    <label class="csat-mes">Mês
+      <select id="csat-mes" onchange="csatTrocarMes(this.value)"></select>
+    </label>
+    <div class="ms" id="cf-oper"></div>
+    <div class="ms" id="cf-eps"></div>
+    <div class="ms" id="cf-loc"></div>
+    <div class="ms" id="cf-sup"></div>
+    <div class="ms" id="cf-date"></div>
+    <div class="ms" id="cf-hora"></div>
+    <button class="link-btn" onclick="csatLimparFiltros()">Limpar filtros</button>
+  </div>
+
+  <!-- Prévia: aparece depois de ler um arquivo, ANTES de gravar. Mostra o relatório do arquivo para conferir. -->
+  <div class="csat-previa hidden" id="csat-previa">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+    <span id="csat-previa-texto">Prévia do arquivo — ainda não gravada no banco.</span>
+    <button class="btn btn-ghost btn-small" onclick="csatDescartarPrevia()">Descartar</button>
+    <button class="btn btn-primary btn-small" onclick="csatSalvar()">Salvar no banco</button>
+  </div>
+
+  <main class="csat-body">
+    <!-- Sem dados no banco ainda -->
+    <div class="empty-state csat-vazio" id="csat-vazio">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 19V9M10 19V5M16 19v-7"/></svg>
+      <p id="csat-vazio-texto">Nenhuma avaliação salva ainda.</p>
+    </div>
+
+    <!-- Guia: Visão Geral -->
+    <section class="csat-aba" id="csat-aba-geral">
+      <div class="csat-kpis">
+        <div class="csat-kpi k-csat"><div class="label">CSAT global</div><div class="value" id="k-csat">—</div><div class="sub" id="k-csat-sub"></div></div>
+        <div class="csat-kpi k-p"><div class="label">Promotoras (4 e 5)</div><div class="value" id="k-p">—</div><div class="sub" id="k-p-sub"></div></div>
+        <div class="csat-kpi k-n"><div class="label">Neutras (3)</div><div class="value" id="k-n">—</div><div class="sub" id="k-n-sub"></div></div>
+        <div class="csat-kpi k-d"><div class="label">Detratoras (1 e 2)</div><div class="value" id="k-d">—</div><div class="sub" id="k-d-sub"></div></div>
+        <div class="csat-kpi k-t"><div class="label">Notas avaliadas</div><div class="value" id="k-t">—</div><div class="sub" id="k-t-sub"></div></div>
+      </div>
+      <div class="panel csat-chart-panel">
+        <div class="panel-head">
+          <div class="csat-chart-titulo">
+            <h3 id="csat-grafico-titulo">Evolução do CSAT por dia</h3>
+            <span class="csat-hint" id="csat-grafico-dica">O filtro de datas não se aplica ao gráfico</span>
+          </div>
+          <!-- Troca a visão: Intraday = CSAT por dia · Intrahora = CSAT por intervalo de 30 minutos -->
+          <div class="seg" id="csat-visao">
+            <button class="seg-btn active" data-visao="dia" onclick="csatVisao('dia')" title="CSAT de cada dia do mês">Intraday</button>
+            <button class="seg-btn" data-visao="hora" onclick="csatVisao('hora')" title="CSAT por intervalo de 30 minutos">Intrahora</button>
+          </div>
+        </div>
+        <div class="csat-chart-box">
+          <canvas id="csat-grafico"></canvas>
+          <div class="csat-grafico-vazio hidden" id="csat-grafico-vazio"></div>
+        </div>
+      </div>
+
+      <!-- Só na visão Intrahora: uma linha por intervalo de 30 minutos -->
+      <div class="panel csat-tabela-panel csat-intra-panel hidden" id="csat-intra-panel">
+        <div class="csat-toolbar"><h3>Resultado por intervalo de 30 minutos</h3></div>
+        <div class="csat-tabela"><table>
+          <thead><tr><th>Intervalo</th><th class="num">Operadores</th><th class="num">Avaliações</th><th class="num">Promotor</th><th class="num">Neutro</th><th class="num">Detrator</th><th class="num">CSAT</th><th>Status</th></tr></thead>
+          <tbody id="csat-tb-hora"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- Guia: Operador -->
+    <section class="csat-aba" id="csat-aba-op">
+      <div class="panel csat-tabela-panel">
+        <div class="csat-toolbar">
+          <h3>Resultado do operador</h3>
+          <div class="csat-toolbar-dir">
+            <select id="csat-st-op" onchange="csatRender()">
+              <option value="">Todos</option>
+              <option value="IN">Na meta</option>
+              <option value="OUT">Fora da meta</option>
+              <option value="D">Com detratores</option>
+              <option value="P">Com promotores</option>
+            </select>
+            <button class="btn btn-danger-ghost btn-small" onclick="csatExportarDetalhe('D')">Extrair detratores</button>
+            <button class="btn btn-ghost btn-small" onclick="csatExportarDetalhe('P')">Extrair promotores</button>
+            <div class="search-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" id="csat-b-op" placeholder="Buscar operador ou supervisor..." oninput="csatRender()"></div>
+          </div>
+        </div>
+        <div class="csat-tabela"><table>
+          <thead><tr><th>Operador</th><th>Supervisor</th><th>Operação</th><th>Local</th><th class="num">Avaliações</th><th class="num">Promotor</th><th class="num">Neutro</th><th class="num">Detrator</th><th class="num">CSAT</th><th>Status</th></tr></thead>
+          <tbody id="csat-tb-op"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- Guia: Supervisor -->
+    <section class="csat-aba" id="csat-aba-sup">
+      <div class="panel csat-tabela-panel">
+        <div class="csat-toolbar">
+          <h3>Visão por supervisor</h3>
+          <div class="csat-toolbar-dir">
+            <div class="search-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" id="csat-b-sup" placeholder="Buscar supervisor..." oninput="csatRender()"></div>
+          </div>
+        </div>
+        <div class="csat-tabela"><table>
+          <thead><tr><th>Supervisor</th><th class="num">Operadores</th><th class="num">Avaliações</th><th class="num">Promotor</th><th class="num">Neutro</th><th class="num">Detrator</th><th class="num">CSAT</th><th>Status</th></tr></thead>
+          <tbody id="csat-tb-sup"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- Guia: Operação -->
+    <section class="csat-aba" id="csat-aba-oper">
+      <div class="panel csat-tabela-panel">
+        <div class="csat-toolbar"><h3>Visão por operação</h3></div>
+        <div class="csat-tabela"><table>
+          <thead><tr><th>Operação</th><th class="num">Operadores</th><th class="num">Avaliações</th><th class="num">Promotor</th><th class="num">Neutro</th><th class="num">Detrator</th><th class="num">CSAT</th><th>Status</th></tr></thead>
+          <tbody id="csat-tb-oper"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- Guia: Importação (só admin) -->
+    <section class="csat-aba" id="csat-aba-imp">
+      <div class="csat-imp-grid">
+        <div class="panel csat-imp-card">
+          <h3>Importar base intra (diária)</h3>
+          <p class="modal-text">Uma planilha por dia (Query: Estrutura + Genesys) em .xlsx, .xlsb ou .csv, <b>com o horário de cada atendimento</b>
+            (coluna HORA_ATENDIMENTO ou INTERVALOS_30MIN). Bases sem horário (formato antigo) são recusadas.
+            As colunas são localizadas pelo nome do cabeçalho.
+            Ao ler o arquivo, o painel mostra uma <b>prévia</b> com os dados dele em todas as guias. Confira e só então clique em <b>Salvar</b>:
+            avaliações novas entram, as que mudaram são atualizadas e as iguais ficam como estão (subir o mesmo dia de novo não duplica nada).</p>
+          <label class="csat-drop" id="csat-drop">
+            <input type="file" id="csat-arquivo" accept=".xlsb,.xlsx,.xls,.csv" onchange="csatImportar(event)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg>
+            <span class="btn btn-ghost btn-small">Selecionar base</span>
+            <span class="csat-drop-sub">ou arraste o arquivo para cá</span>
+          </label>
+          <div class="csat-status" id="csat-status"></div>
+          <p class="field-hint">Arquivos grandes (dezenas de MB) levam alguns minutos para abrir. Para agilizar, filtre na Query apenas as linhas com "cont pes" = 1.</p>
+        </div>
+        <div class="panel csat-hist-card">
+          <div class="panel-head"><h3>Histórico de salvamentos</h3></div>
+          <div class="csat-tabela"><table>
+            <thead><tr><th>Quando</th><th>Quem</th><th>Arquivo</th><th class="num">Novas</th><th class="num">Atualizadas</th><th class="num">Iguais</th><th class="num">Meta</th></tr></thead>
+            <tbody id="csat-tb-hist"></tbody>
+          </table></div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+<!-- ═══ FIM 3B. PAINEL CSAT ═══ -->
+
+
+<!-- ════════════════════════════════════════════════════════════════
+     4. JANELAS (modais) — abertas com openModal('id') e fechadas com closeModal('id')
+        (clicar fora NÃO fecha: só o X ou os botões da janela)
+     ════════════════════════════════════════════════════════════════ -->
+
+<!-- ── 4.1 Janela: Relatórios descontinuados (tabela preenchida por renderDiscontinued) ── -->
+<div class="modal-overlay" id="modal-discontinued">
+  <div class="modal wide">
+    <div class="modal-head">
+      <h3>Relatórios descontinuados</h3>
+      <button class="btn-icon" onclick="closeModal('modal-discontinued')">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body" id="discontinued-body"></div>
+  </div>
+</div>
+<!-- ── fim 4.1 ── -->
+
+<!-- ── 4.2 Janela: Publicar / editar relatório ── -->
+<div class="modal-overlay" id="modal-report">
+  <div class="modal wide">
+    <div class="modal-head">
+      <h3 id="report-modal-title">Publicar relatório</h3>
+      <button class="btn-icon" onclick="closeModal('modal-report')">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Nome do relatório</label>
+        <input id="rp-title" class="caixa-alta" type="text" placeholder="Ex: Vendas · Visão mensal">
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Categoria</label>
+          <select id="rp-category">
+            <option>Comercial</option>
+            <option>Financeiro</option>
+            <option>Operações</option>
+            <option>RH</option>
+            <option>Marketing</option>
+          </select>
+        </div>
+        <!-- Some quando o card é o Painel CSAT (ele não usa link) -->
+        <div class="field" id="rp-link-field">
+          <label>Link de publicação (embed Power BI)</label>
+          <input id="rp-link" type="text" placeholder="https://app.powerbi.com/...">
+        </div>
+      </div>
+      <div class="field">
+        <label>Descrição</label>
+        <input id="rp-desc" class="caixa-alta" type="text" placeholder="Breve descrição do conteúdo do relatório">
+      </div>
+      <div class="toggle-row">
+        <div>
+          <div class="t-label">Visível para usuários</div>
+          <div class="t-sub">Relatórios ocultos ficam visíveis apenas para administradores.</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="rp-visible" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <!-- Só aparece ao editar o Painel CSAT ou um relatório do Estúdio: abre o desenho no editor -->
+      <button class="btn btn-ghost" id="rp-abrir-estudio" style="width:auto;margin-right:auto;display:none" onclick="abrirNoEstudioDoModal()">Abrir no Estúdio</button>
+      <button class="btn btn-ghost" onclick="closeModal('modal-report')">Cancelar</button>
+      <button class="btn btn-primary" style="width:auto;" onclick="saveReport()">Salvar relatório</button>
+    </div>
+  </div>
+</div>
+<!-- ── fim 4.2 ── -->
+
+<!-- ── 4.3 Janela: Novo / editar usuário ── -->
+<div class="modal-overlay" id="modal-user">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="user-modal-title">Novo usuário</h3>
+      <button class="btn-icon" onclick="closeModal('modal-user')">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Nome completo</label>
+        <input id="us-name" class="caixa-alta" type="text" placeholder="Nome do usuário">
+      </div>
+      <div class="field">
+        <label>Matrícula</label>
+        <input id="us-matricula" type="number" placeholder="Ex: 14032">
+      </div>
+      <div class="field">
+        <label>E-mail</label>
+        <input id="us-email" class="caixa-baixa" type="email" placeholder="usuario@empresa.com">
+      </div>
+      <div class="field">
+        <label>Senha provisória</label>
+        <input id="us-pass" type="text" placeholder="Mín. 8: maiúscula, minúscula, número e símbolo">
+        <div class="field-hint">Vale para um único acesso: o usuário deverá trocá-la no primeiro login.</div>
+      </div>
+      <div class="field">
+        <label>Perfil de acesso</label>
+        <select id="us-role">
+          <option value="usuario">Usuário — leitura de relatórios</option>
+          <option value="admin">Administrador — acesso total</option>
+        </select>
+      </div>
+      <div class="toggle-row">
+        <div>
+          <div class="t-label">Usuário ativo</div>
+          <div class="t-sub">Usuários inativos não conseguem acessar o portal.</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="us-active" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-user')">Cancelar</button>
+      <button class="btn btn-primary" style="width:auto;" onclick="saveUser()">Salvar usuário</button>
+    </div>
+  </div>
+</div>
+<!-- ── fim 4.3 ── -->
+
+<!-- ── 4.4 Janela: Esqueci minha senha (aberta na tela de login; o pedido vai para o admin) ── -->
+<div class="modal-overlay" id="modal-esqueci">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Esqueci minha senha</h3>
+      <button class="btn-icon" onclick="closeModal('modal-esqueci')">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <p class="modal-text">Informe o seu e-mail de acesso. O administrador será avisado e vai definir uma senha provisória para você.</p>
+      <div class="field">
+        <label>E-mail</label>
+        <input id="esq-email" class="caixa-baixa" type="email" placeholder="seu.email@empresa.com">
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-esqueci')">Cancelar</button>
+      <button class="btn btn-primary" style="width:auto;" onclick="solicitarReset()">Enviar pedido</button>
+    </div>
+  </div>
+</div>
+<!-- ── fim 4.4 ── -->
+
+<!-- ── 4.5 Janela: Troca OBRIGATÓRIA de senha (1º login com senha provisória).
+         Sem X de propósito: só sai salvando a nova senha ou clicando em "Sair" ── -->
+<div class="modal-overlay" id="modal-trocar-senha">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Defina sua nova senha</h3>
+    </div>
+    <div class="modal-body">
+      <p class="modal-text">Você entrou com uma senha provisória. Para continuar, crie a sua senha definitiva.</p>
+      <div class="field">
+        <label>Nova senha</label>
+        <input id="ts-nova" type="password" placeholder="Mín. 8: maiúscula, minúscula, número e símbolo">
+      </div>
+      <div class="field">
+        <label>Confirmar nova senha</label>
+        <input id="ts-confirma" type="password" placeholder="Digite a nova senha de novo">
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="cancelarTrocaSenha()">Sair</button>
+      <button class="btn btn-primary" style="width:auto;" onclick="salvarNovaSenha()">Salvar e entrar</button>
+    </div>
+  </div>
+</div>
+<!-- ── fim 4.5 ── -->
+
+<!-- ── 4.6 Janela: Resetar senha de um usuário (só admin) ── -->
+<div class="modal-overlay" id="modal-reset">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="reset-modal-title">Resetar senha</h3>
+      <button class="btn-icon" onclick="closeModal('modal-reset')">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <p class="modal-text" id="reset-modal-text"></p>
+      <div class="field">
+        <label>Senha provisória</label>
+        <input id="rs-senha" type="text" placeholder="Mín. 8: maiúscula, minúscula, número e símbolo">
+        <div class="field-hint">Vale para um único acesso: o usuário deverá trocá-la no próximo login.</div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-reset')">Cancelar</button>
+      <button class="btn btn-primary" style="width:auto;" onclick="confirmarResetSenha()">Resetar senha</button>
+    </div>
+  </div>
+</div>
+<!-- ── fim 4.6 ── -->
+<!-- ═══ FIM 4. JANELAS ═══ -->
+
+
+<!-- ════════════════════════════════════════════════════════════════
+     5. AVISO (toast) — mensagem rápida no rodapé, via showToast(msg, tipo)
+     ════════════════════════════════════════════════════════════════ -->
+<div id="toast">
+  <!-- Ícone de sucesso (✓) e de erro (!): o CSS mostra um ou outro conforme a classe "erro" no #toast -->
+  <svg class="ic-ok" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="20 6 9 17 4 12"/></svg>
+  <svg class="ic-erro" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="7.5" x2="12" y2="13"/><line x1="12" y1="16.5" x2="12" y2="16.5"/></svg>
+  <span id="toast-text">Salvo com sucesso.</span>
+</div>
+<!-- ═══ FIM 5. AVISO ═══ -->
+
+
+<!-- ════════════════════════════════════════════════════════════════
+     6. SCRIPTS — todo o comportamento da página fica no script.js
+     (fica no fim do body para carregar depois que todos os elementos acima já existem)
+     ════════════════════════════════════════════════════════════════ -->
+<!-- LSW: dados fictícios e o "servidor" de demonstração (precisam vir ANTES do script.js) -->
+<script src="lsw-dados.js"></script>
+<script src="lsw-demo-api.js"></script>
+<script src="script.js"></script>
+<!-- Estúdio (fase 3): usa funções do script.js, por isso vem depois dele -->
+<script src="estudio.js"></script>
+<!-- Editor de relatórios do Estúdio (fase 3 · E2): usa funções do estudio.js -->
+<script src="estudio-editor.js"></script>
+<!-- Medidas e desenho dos visuais do editor (fase 3 · E2b) -->
+<script src="estudio-visuais.js"></script>
+<script src="estudio-dax.js"></script>
+<!-- LSW: Apresentação, Tutorial (leitura + passo a passo guiado) e entrada da demonstração -->
+<script src="lsw-app.js"></script>
+</body>
+</html>

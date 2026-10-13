@@ -1,0 +1,494 @@
+/* =====================================================================
+   ESTÚDIO (fase 3) — estilos próprios. Usa as cores (tokens) do style.css
+   e reaproveita componentes do painel CSAT (.csat-drop, .csat-status, .csat-kpi).
+   Todas as fontes seguem calc(Npx * var(--escala-fonte)).
+   ===================================================================== */
+
+#view-estudio .num{ text-align:right; font-variant-numeric:tabular-nums; }
+.est-base-nome{ font-weight:500; }
+.est-base-desc{ font-size:calc(12px * var(--escala-fonte)); color:var(--text-faint); }
+
+/* Topo do assistente: título + passos */
+.est-topo{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:16px; flex-wrap:wrap; }
+.est-topo h3{ font-size:calc(18px * var(--escala-fonte)); margin-bottom:8px; }
+.est-passos{ display:flex; gap:6px; flex-wrap:wrap; }
+.est-passo{
+  font-size:calc(12.5px * var(--escala-fonte)); padding:4px 10px; border-radius:20px;
+  background:var(--surface-2); border:1px solid var(--border); color:var(--text-faint);
+}
+.est-passo.atual{ background:var(--accent-soft); border-color:var(--accent); color:var(--accent-light); font-weight:500; }
+.est-passo.feito{ color:var(--success); border-color:var(--success); }
+
+.est-painel{ padding:20px; }
+.est-campos{ margin-bottom:6px; }
+/* Campos fora de janela: mesmas cores dos campos das janelas */
+#view-estudio .field input, #view-estudio .field select,
+.est-tabela select, .est-tabela input{
+  background:var(--surface-2); border:1px solid var(--border); color:var(--text); border-radius:8px; outline:none;
+}
+#view-estudio .field input:focus, #view-estudio .field select:focus,
+.est-tabela select:focus, .est-tabela input:focus{ border-color:var(--accent); }
+#view-estudio .field label{ color:var(--text-dim); }
+#view-estudio .field select option, .est-tabela select option{ background:var(--surface); color:var(--text); }
+.est-chave-resumo{ font-size:calc(13.5px * var(--escala-fonte)); padding:11px 0 0; color:var(--text); }
+
+/* Tabelas do assistente: rolam dentro do card, cabeçalho fixo */
+.est-tabela{ overflow:auto; max-height:calc(100vh - 360px); border:1px solid var(--border); border-radius:var(--radius); margin-top:12px; }
+.est-tabela table{ min-width:100%; }
+.est-tabela thead th{ position:sticky; top:0; z-index:1; background:var(--surface); padding:10px 10px; white-space:nowrap; }
+.est-tabela tbody td{ padding:8px 10px; vertical-align:top; font-size:calc(13px * var(--escala-fonte)); }
+.est-tabela select{ padding:6px 8px; font-size:calc(13px * var(--escala-fonte)); max-width:170px; }
+.est-tabela input[type=text]{ padding:6px 8px; font-size:calc(13px * var(--escala-fonte)); }
+.est-rotulo{ width:190px; }
+.est-padrao{ width:150px; margin-top:6px; display:block; }
+.est-ck{ text-align:center; }
+.est-ck input{ width:16px; height:16px; accent-color:var(--accent); margin-top:6px; }
+.est-origem{ font-weight:500; white-space:nowrap; }
+.est-exemplos{ font-size:calc(12px * var(--escala-fonte)); color:var(--text-faint); max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.est-diag{ font-size:calc(12.5px * var(--escala-fonte)); color:var(--text-dim); white-space:nowrap; }
+.est-aviso{ color:var(--warning); font-weight:500; }
+.est-fraco{ color:var(--text-faint); font-style:italic; }
+tr.est-desligada td{ opacity:.45; }
+tr.est-desligada td.est-ck:first-child{ opacity:1; }
+.est-tipo{ font-size:calc(10.5px * var(--escala-fonte)); color:var(--text-faint); text-transform:none; letter-spacing:0; font-weight:400; }
+
+.est-rodape{ display:flex; justify-content:flex-end; gap:10px; margin-top:16px; }
+.est-alerta{
+  margin:4px 0 16px; padding:12px 14px; border-radius:8px; font-size:calc(13px * var(--escala-fonte)); line-height:1.6;
+  background:var(--warning-soft); border:1px solid var(--warning);
+}
+.est-alerta ul{ margin:6px 0 6px 18px; }
+
+/* Prévia: dias à esquerda, amostra à direita */
+.est-duas{ display:grid; grid-template-columns:minmax(240px, 320px) minmax(0, 1fr); gap:16px; }
+.est-duas h4{ font-size:calc(14px * var(--escala-fonte)); margin-top:4px; }
+.est-dias{ max-height:calc(100vh - 470px); min-height:160px; }
+.est-amostra{ max-height:calc(100vh - 470px); min-height:160px; }
+.est-amostra td{ white-space:nowrap; }
+@media (max-width: 1000px){ .est-duas{ grid-template-columns:1fr; } }
+
+/* ---------- Abas do Estúdio (Bases / Relatórios) ---------- */
+.est-abas{ display:flex; gap:4px; border-bottom:1px solid var(--border); margin-bottom:20px; }
+.est-aba{
+  border:none; background:transparent; color:var(--text-dim); padding:10px 16px; margin-bottom:-1px;
+  font-size:calc(14px * var(--escala-fonte)); font-weight:500; border-bottom:2px solid transparent;
+}
+.est-aba span{ font-size:calc(11.5px * var(--escala-fonte)); background:var(--surface-3); color:var(--text-faint); border-radius:10px; padding:1px 7px; margin-left:4px; }
+.est-aba:hover{ color:var(--text); }
+.est-aba.ativa{ color:var(--accent-light); border-bottom-color:var(--accent); }
+.est-novo-rel{ margin-bottom:16px; }
+.est-check{ display:flex; align-items:center; gap:8px; font-size:calc(13px * var(--escala-fonte)); color:var(--text-dim); margin:4px 0 6px; }
+.est-check input{ accent-color:var(--accent); width:16px; height:16px; }
+
+/* ---------- EDITOR DE RELATÓRIOS (tela cheia) ---------- */
+.ed-overlay{ position:fixed; inset:0; z-index:110; background:var(--bg); display:flex; flex-direction:column; }
+.ed-top{
+  display:flex; align-items:center; gap:12px; padding:8px 14px; min-height:var(--header-h);
+  background:var(--surface); border-bottom:1px solid var(--border);
+}
+.ed-nome-wrap{ flex:1; min-width:0; }
+.ed-nome{
+  background:transparent; border:1px solid transparent; border-radius:6px; color:var(--text); outline:none; width:min(520px, 100%);
+  font-family:'Space Grotesk',sans-serif; font-size:calc(17px * var(--escala-fonte)); font-weight:600; padding:3px 6px;
+}
+.ed-nome:hover{ border-color:var(--border); }
+.ed-nome:focus{ border-color:var(--accent); background:var(--surface-2); }
+.ed-base{ font-size:calc(12px * var(--escala-fonte)); color:var(--text-faint); padding-left:7px; }
+.ed-acoes{ display:flex; gap:8px; align-items:center; }
+.ed-acoes .btn-small{ width:auto; padding:7px 11px; }
+.ed-acoes .btn:disabled{ opacity:.4; cursor:default; }
+#ed-salvar{ position:relative; }
+#ed-salvar.pendente::after{ content:""; position:absolute; top:-4px; right:-4px; width:10px; height:10px; border-radius:50%; background:var(--danger); border:2px solid var(--surface); }
+
+/* Corpo: painel Dados (recolhível) + tela. O painel direito saiu: tudo foi para a faixa do topo (12/10/2026) */
+.ed-corpo{ flex:1; display:grid; grid-template-columns:240px minmax(0, 1fr); min-height:0; }
+.ed-corpo.dados-fechado{ grid-template-columns:34px minmax(0, 1fr); }
+.ed-dados{ background:var(--surface); overflow-y:auto; padding:14px; border-right:1px solid var(--border); }
+.ed-dados-cab{ display:flex; align-items:center; justify-content:space-between; }
+.ed-dados-rec{ border:1px solid var(--border); background:var(--surface-2); color:var(--text-dim); border-radius:6px; width:24px; height:22px; display:flex; align-items:center; justify-content:center; padding:0; }
+.ed-dados-rec:hover, .ed-dados-abrir:hover{ color:var(--accent-light); border-color:var(--accent); }
+.ed-dados-abrir{ display:none; }
+.ed-corpo.dados-fechado .ed-dados{ padding:8px 4px; overflow:hidden; }
+.ed-corpo.dados-fechado .ed-dados > *:not(.ed-dados-abrir){ display:none !important; }
+.ed-corpo.dados-fechado .ed-dados-abrir{
+  display:flex; flex-direction:column; align-items:center; gap:10px; width:100%; padding:8px 0; border:1px solid var(--border); border-radius:6px;
+  background:var(--surface-2); color:var(--text-dim);
+}
+.ed-dados-abrir span{ writing-mode:vertical-rl; letter-spacing:.12em; font-size:calc(11px * var(--escala-fonte)); }
+
+/* ---------- Faixa de menus (estilo Excel) ---------- */
+.ed-faixa-wrap{ background:var(--surface); border-bottom:1px solid var(--border); }
+.ed-faixa-abas{ display:flex; align-items:flex-end; gap:2px; padding:0 12px; border-bottom:1px solid var(--border); overflow-x:auto; }
+.ed-faixa-aba{
+  border:none; background:transparent; color:var(--text-dim); padding:8px 14px 7px; white-space:nowrap; margin-bottom:-1px;
+  font-size:calc(13px * var(--escala-fonte)); border-bottom:2px solid transparent;
+}
+.ed-faixa-aba:hover{ color:var(--text); }
+.ed-faixa-aba.ativa{ color:var(--accent-light); border-bottom-color:var(--accent); font-weight:600; }
+/* abas do visual selecionado: separadas e com fundo de destaque (como "Ferramentas de Gráfico" do Excel) */
+.ed-faixa-ctx-rot{ margin-left:14px; padding:2px 8px 7px; font-size:calc(10.5px * var(--escala-fonte)); text-transform:uppercase; letter-spacing:.06em; color:var(--accent-light); border-left:1px solid var(--border); }
+.ed-faixa-aba.ctx{ background:var(--accent-soft); border-radius:6px 6px 0 0; }
+/* Altura FIXA (como no Excel): trocar de aba não empurra a tela para cima/baixo — senão um clique
+   que seleciona um visual (e abre a aba Visual) "escorrega" e não chega ao botão clicado */
+.ed-faixa{ display:flex; align-items:stretch; gap:0; padding:6px 8px 4px; height:calc(112px * var(--escala-fonte) + 10px); overflow-x:auto; overflow-y:hidden; }
+.ed-rib-grupo{ display:flex; flex-direction:column; padding:0 10px; border-right:1px solid var(--border); flex-shrink:0; }
+.ed-rib-grupo:last-child{ border-right:none; }
+.ed-rib-ctl{ flex:1; display:flex; align-items:flex-start; gap:4px; }
+.ed-rib-rot{ text-align:center; font-size:calc(10.5px * var(--escala-fonte)); color:var(--text-faint); padding-top:4px; white-space:nowrap; }
+.ed-rib-col{ display:flex; flex-direction:column; gap:4px; }
+.ed-rib-lin{ display:flex; gap:4px; flex-wrap:wrap; }
+.ed-rib-btn{
+  display:flex; flex-direction:column; align-items:center; gap:4px; min-width:62px; max-width:84px; padding:6px 6px; border:1px solid transparent; border-radius:7px;
+  background:transparent; color:var(--text); font-size:calc(11.5px * var(--escala-fonte)); line-height:1.15; text-align:center;
+}
+.ed-rib-btn:hover{ background:var(--accent-soft); border-color:var(--accent); color:var(--accent-light); }
+.ed-rib-txtico{ font-family:'Cascadia Mono',Consolas,monospace; font-style:italic; font-weight:700; font-size:calc(17px * var(--escala-fonte)); line-height:22px; color:var(--accent-light); }
+.ed-rib-peq{
+  display:flex; align-items:center; gap:6px; padding:4px 8px; border:1px solid transparent; border-radius:6px; background:transparent; color:var(--text);
+  font-size:calc(12px * var(--escala-fonte)); white-space:nowrap;
+}
+.ed-rib-peq:hover:not(:disabled){ background:var(--accent-soft); border-color:var(--accent); color:var(--accent-light); }
+.ed-rib-peq:disabled{ opacity:.4; cursor:default; }
+.ed-rib-peq.ativo{ background:var(--accent-soft); color:var(--accent-light); border-color:var(--accent); }
+.ed-rib-zoom{ max-width:220px; }
+.ed-rib-inp{ width:210px; padding:5px 8px; }
+.ed-rib-info{ font-size:calc(11px * var(--escala-fonte)); color:var(--text-faint); }
+.ed-rib-dica{ max-width:330px; font-size:calc(11.5px * var(--escala-fonte)); color:var(--text-faint); line-height:1.45; }
+.ed-rib-chk{ display:flex; align-items:center; gap:8px; font-size:calc(12px * var(--escala-fonte)); color:var(--text-dim); cursor:pointer; padding-top:6px; }
+.ed-rib-chk input{ accent-color:var(--accent); width:16px; height:16px; }
+/* aba Cálculos: relações entre bases (E5) */
+.ed-rib-rels{ max-width:380px; max-height:calc(84px * var(--escala-fonte)); overflow-y:auto; }
+.ed-rib-rel{ display:flex; align-items:center; gap:6px; padding:3px 4px 3px 8px; border-radius:6px; background:var(--surface-2); border:1px solid var(--border); font-size:calc(11.5px * var(--escala-fonte)); white-space:nowrap; }
+.ed-rib-rel button{ border:none; background:transparent; color:var(--text-faint); font-size:calc(14px * var(--escala-fonte)); padding:0 4px; margin-left:auto; }
+.ed-rib-rel button:hover{ color:var(--danger); }
+/* aba Visual: caixas de campos lado a lado */
+.ed-rib-campos .ed-slots{ flex-direction:row; margin-top:0; gap:8px; align-items:flex-start; }
+.ed-rib-campos .ed-slot{ width:200px; max-height:calc(92px * var(--escala-fonte)); overflow-y:auto; padding:6px; }
+.ed-rib-campos .ed-info{ max-width:220px; margin:0; font-size:calc(11px * var(--escala-fonte)); }
+.ed-rib-campos .vz-chip{ margin-bottom:4px; padding:3px 5px 3px 8px; }
+/* aba Formatar: no máximo 3 linhas por grupo; o resto vai para a coluna ao lado */
+.vz-fmt-col{ display:grid; grid-template-rows:repeat(3, auto); grid-auto-flow:column; gap:2px 16px; align-content:start; }
+.vz-fmt-col .vz-fmt-lin{ margin-top:0; min-height:26px; }
+.vz-fmt-col .vz-fmt-sel{ width:130px; }
+.ed-painel-titulo{ font-size:calc(11.5px * var(--escala-fonte)); text-transform:uppercase; letter-spacing:.06em; color:var(--text-faint); margin-bottom:10px; }
+.ed-periodo{ font-size:calc(12px * var(--escala-fonte)); color:var(--text-dim); margin-bottom:10px; }
+.ed-busca, .ed-inp{
+  width:100%; padding:7px 9px; border-radius:7px; border:1px solid var(--border); background:var(--surface-2); color:var(--text);
+  font-size:calc(13px * var(--escala-fonte)); outline:none;
+}
+.ed-busca:focus, .ed-inp:focus{ border-color:var(--accent); }
+.ed-inp option, .ed-inp optgroup{ background:var(--surface); color:var(--text); }
+.ed-grupo{ font-size:calc(11.5px * var(--escala-fonte)); color:var(--text-faint); margin:14px 0 6px; font-weight:500; }
+.ed-campo{ display:flex; align-items:center; gap:8px; padding:5px 6px; border-radius:6px; font-size:calc(13px * var(--escala-fonte)); cursor:default; }
+.ed-campo:hover{ background:var(--surface-2); }
+.ed-campo-ico{ min-width:26px; text-align:center; font-size:calc(10.5px * var(--escala-fonte)); color:var(--accent-light); background:var(--accent-soft); border-radius:4px; padding:1px 3px; }
+.ed-campo-nome{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ed-em-breve{ font-size:calc(12px * var(--escala-fonte)); color:var(--text-faint); line-height:1.5; border:1px dashed var(--border); border-radius:8px; padding:9px; }
+
+/* Centro: guias + tela */
+.ed-centro{ display:flex; flex-direction:column; min-width:0; min-height:0; }
+.ed-guias{ display:flex; gap:2px; padding:0 12px; background:var(--surface); border-bottom:1px solid var(--border); overflow-x:auto; }
+.ed-guia{
+  border:none; background:transparent; color:var(--text-dim); padding:10px 14px; white-space:nowrap; margin-bottom:-1px;
+  font-size:calc(13.5px * var(--escala-fonte)); font-weight:500; border-bottom:2px solid transparent;
+}
+.ed-guia:hover{ color:var(--text); }
+.ed-guia.ativa{ color:var(--accent-light); border-bottom-color:var(--accent); }
+.ed-guia-nova{ color:var(--text-faint); display:flex; align-items:center; }
+.ed-guia-input{ margin:5px 4px; padding:5px 8px; border-radius:6px; border:1px solid var(--accent); background:var(--surface-2); color:var(--text); font-size:calc(13px * var(--escala-fonte)); outline:none; width:170px; }
+.ed-tela{ flex:1; overflow:auto; padding:14px; position:relative; }
+.ed-dica{ text-align:center; font-size:calc(12px * var(--escala-fonte)); color:var(--text-faint); padding:10px 0 4px; }
+/* Sem min-height aqui: o Gridstack lê esse valor e não aceita calc(); a altura mínima vem da opção minRow */
+/* O tamanho dos pontinhos (background-size) é calculado no JS = exatamente uma célula da grade */
+#ed-grade{
+  border-radius:10px; cursor:copy; margin:0 auto;
+  background-image:radial-gradient(circle at 0 0, var(--border) 1.4px, transparent 1.8px); background-size:50px 36px;
+}
+.ed-zoom{ padding:7px 8px; border-radius:7px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-size:calc(12.5px * var(--escala-fonte)); outline:none; }
+.ed-zoom option{ background:var(--surface); color:var(--text); }
+
+/* Modo PRÉVIA: só a página, sem painéis, sem pontinhos, sem edição — como o usuário final verá */
+.ed-modo-previa .ed-corpo, .ed-modo-previa .ed-corpo.dados-fechado{ grid-template-columns:minmax(0, 1fr); }
+.ed-modo-previa .ed-dados, .ed-modo-previa .ed-dica,
+.ed-modo-previa .ed-guia-nova, .ed-modo-previa .ed-so-edicao, .ed-modo-previa .ed-vis-tipo,
+.ed-modo-previa .ed-vazio-txt{ display:none !important; }
+.ed-modo-previa #ed-grade{ background-image:none; cursor:default; }
+.ed-modo-previa .ed-vis-cab{ cursor:default; }
+.ed-modo-previa .ed-vis:hover, .ed-modo-previa .ed-vis.sel{ border-color:var(--vis-borda, var(--border)); box-shadow:none; }
+/* Título escondido (aba Formatar): na edição a barra fica clarinha (é por ela que se arrasta); na prévia some */
+.ed-vis.sem-titulo .ed-vis-cab{ border-bottom-color:transparent; }
+.ed-vis.sem-titulo .ed-vis-titulo{ opacity:.35; }
+.ed-modo-previa .ed-vis.sem-titulo .ed-vis-cab{ display:none; }
+#ed-previa-btn{ white-space:nowrap; }
+#ed-grade .grid-stack-item-content{ inset:0; overflow:visible; cursor:default; }
+
+/* Visual (caixa na tela) */
+.ed-vis{
+  height:100%; display:flex; flex-direction:column; background:var(--vis-fundo, var(--surface)); border:1px solid var(--vis-borda, var(--border)); border-radius:10px; overflow:hidden;
+  transition:border-color .12s, box-shadow .12s;
+}
+.ed-vis:hover{ border-color:var(--text-faint); }
+.ed-vis.sel{ border-color:var(--accent); box-shadow:0 0 0 2px var(--accent-soft); }
+.ed-vis-cab{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:5px 10px; cursor:move; border-bottom:1px solid var(--border); flex-shrink:0; }
+.ed-vis-titulo{ font-size:calc(12.5px * var(--escala-fonte)); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ed-vis-tipo{ font-size:calc(10.5px * var(--escala-fonte)); color:var(--text-faint); white-space:nowrap; }
+/* container-type: o card "mede" o próprio tamanho e reduz o número quando fica pequeno */
+.ed-vis-corpo{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; padding:4px 8px; color:var(--text-faint); text-align:center; min-height:0; overflow:hidden; container-type:size; }
+.ed-vazio-ico{ opacity:.55; }
+.ed-vazio-txt{ font-size:calc(11.5px * var(--escala-fonte)); }
+.ed-card-valor{ font-family:'Space Grotesk',sans-serif; font-size:calc(26px * var(--escala-fonte)); color:var(--text-dim); }
+/* Alça de redimensionar do Gridstack nas cores do tema */
+/* A alça do CANTO precisa ficar por cima das alças das bordas (senão, no canto, quem pega o clique é a
+   alça da borda direita, que só muda a largura) e um pouco maior para ser fácil de acertar */
+#ed-grade .ui-resizable-se{ z-index:110 !important; width:18px; height:18px; filter:opacity(.7); }
+#ed-grade .grid-stack-placeholder > .placeholder-content{ background:var(--accent-soft); border:1px dashed var(--accent); border-radius:10px; }
+
+/* Menu de tipos de visual */
+.ed-menu{
+  position:fixed; z-index:120; width:220px; padding:6px; border-radius:10px; border:1px solid var(--border);
+  background:var(--surface); box-shadow:var(--shadow);
+}
+.ed-menu-grupo{ font-size:calc(11px * var(--escala-fonte)); text-transform:uppercase; letter-spacing:.05em; color:var(--text-faint); padding:6px 8px 3px; }
+.ed-menu-item{ display:flex; align-items:center; gap:10px; width:100%; border:none; background:transparent; color:var(--text); padding:7px 8px; border-radius:6px; font-size:calc(13px * var(--escala-fonte)); text-align:left; }
+.ed-menu-item:hover{ background:var(--accent-soft); color:var(--accent-light); }
+
+/* Painel de propriedades */
+.ed-abas{ display:flex; gap:4px; margin-bottom:14px; }
+.ed-aba{ flex:1; border:1px solid var(--border); background:var(--surface-2); color:var(--text-dim); border-radius:7px; padding:6px; font-size:calc(12.5px * var(--escala-fonte)); }
+.ed-aba.ativa{ background:var(--accent-soft); border-color:var(--accent); color:var(--accent-light); }
+.ed-rot{ display:block; font-size:calc(12px * var(--escala-fonte)); color:var(--text-dim); margin:12px 0 5px; }
+.ed-slots{ margin-top:14px; display:flex; flex-direction:column; gap:8px; }
+.ed-slot-nome{ font-size:calc(12px * var(--escala-fonte)); color:var(--text-dim); margin-bottom:4px; }
+.ed-slot-alvo{ border:1px dashed var(--border); border-radius:7px; padding:9px; text-align:center; font-size:calc(11.5px * var(--escala-fonte)); color:var(--text-faint); }
+.ed-props-rodape{ display:flex; gap:8px; margin-top:16px; }
+.ed-props-rodape .btn{ flex:1; }
+.ed-posicao, .ed-info{ font-size:calc(12px * var(--escala-fonte)); color:var(--text-faint); margin:12px 0; line-height:1.5; }
+@media (max-width: 1100px){ .ed-corpo{ grid-template-columns:190px minmax(0, 1fr) 230px; } }
+
+/* ---------- E2b · medidas, campos e visuais com dados ---------- */
+.ed-campo[draggable="true"]{ cursor:grab; }
+.ed-campo[draggable="true"]:active{ cursor:grabbing; }
+.ed-medida .ed-campo-ico{ background:var(--warning-soft); color:var(--warning); font-weight:600; }
+.ed-medida{ cursor:pointer; }
+.ed-grupo-med{ display:flex; align-items:center; justify-content:space-between; }
+.vz-nova-med{ border:1px solid var(--border); background:var(--surface-2); color:var(--accent-light); border-radius:6px; padding:2px 8px; font-size:calc(11.5px * var(--escala-fonte)); }
+.vz-nova-med:hover{ border-color:var(--accent); }
+.ed-fraco{ color:var(--text-faint); font-weight:400; }
+
+/* Caixas de campos (Eixo / Valores / Legenda) */
+.ed-slot{ border:1px dashed var(--border); border-radius:8px; padding:8px; transition:border-color .12s, background .12s; }
+.ed-slot.vz-alvo, .ed-vis.vz-alvo{ border-color:var(--accent); background:var(--accent-soft); }
+.vz-chip{
+  display:flex; align-items:center; gap:6px; padding:5px 6px 5px 9px; margin-bottom:6px; border-radius:6px;
+  background:var(--surface-3); font-size:calc(12.5px * var(--escala-fonte));
+}
+.vz-chip.medida{ background:var(--warning-soft); }
+.vz-chip-nome{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.vz-chip-agg{ border:1px solid var(--border); background:var(--surface-2); color:var(--text); border-radius:5px; font-size:calc(11px * var(--escala-fonte)); padding:2px 4px; max-width:92px; }
+.vz-chip-x{ border:none; background:transparent; color:var(--text-faint); font-size:calc(15px * var(--escala-fonte)); line-height:1; padding:0 3px; }
+.vz-chip-x:hover{ color:var(--danger); }
+.vz-add{ width:100%; padding:6px 7px; border-radius:6px; border:1px solid var(--border); background:var(--surface-2); color:var(--text-dim); font-size:calc(12px * var(--escala-fonte)); outline:none; }
+.vz-add option, .vz-add optgroup{ background:var(--surface); color:var(--text); }
+
+/* Visual com dados */
+.vz-card-valor{ font-family:'Space Grotesk',sans-serif; font-size:min(calc(30px * var(--escala-fonte)), 52cqh, 18cqw); font-weight:600; color:var(--text); line-height:1.1; white-space:nowrap; }
+.vz-card-rot{ font-size:min(calc(12px * var(--escala-fonte)), 22cqh); color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+.ed-card-valor{ font-size:min(calc(26px * var(--escala-fonte)), 50cqh); }
+.vz-grafico{ width:100%; height:100%; min-height:80px; }
+.ed-vis-corpo:has(.vz-grafico){ padding:6px 8px 4px; align-items:stretch; }
+.vz-erro{ color:var(--danger); font-size:calc(12px * var(--escala-fonte)); }
+
+/* ---------- eixos alternativos: botões no título do gráfico (ex.: INTRADAY | INTRAHORA) ---------- */
+.ed-vis-cab.com-alternador .ed-vis-tipo{ display:none; }
+.ed-vis-alt{ display:inline-flex; gap:2px; padding:2px; border-radius:7px; background:var(--surface-2); border:1px solid var(--border); flex-shrink:0; }
+.ed-vis-alt button{ border:none; background:transparent; color:var(--text-dim); padding:2px 10px; border-radius:5px; font-size:calc(11.5px * var(--escala-fonte)); cursor:pointer; white-space:nowrap; }
+.ed-vis-alt button:hover{ color:var(--text); }
+.ed-vis-alt button.ativo{ background:var(--accent-soft); color:var(--accent-light); font-weight:600; }
+.vz-chip{ flex-wrap:wrap; }
+.vz-chip-rot{ flex-basis:100%; margin-top:4px; padding:3px 6px; border-radius:5px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-size:calc(11px * var(--escala-fonte)); outline:none; }
+.vz-chip-rot:focus{ border-color:var(--accent); }
+
+/* ---------- E2d · filtros (segmentações) ---------- */
+.ed-vis-corpo:has(.vz-filtro){ justify-content:center; align-items:stretch; padding:6px 10px; }
+.vz-filtro{ display:flex; align-items:center; gap:6px; width:100%; }
+.vz-filtro-btn{
+  flex:1; min-width:0; display:flex; align-items:center; justify-content:space-between; gap:8px; padding:7px 10px; border-radius:7px;
+  border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-size:calc(13px * var(--escala-fonte)); text-align:left;
+}
+.vz-filtro-btn span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.vz-filtro-btn:hover, .vz-filtro-btn.ativo{ border-color:var(--accent); }
+.vz-filtro-btn.ativo{ color:var(--accent-light); }
+.vz-filtro-btn.vazio{ color:var(--text-faint); }
+.vz-filtro-limpar{ border:1px solid var(--border); background:var(--surface-2); color:var(--text-dim); border-radius:6px; width:26px; height:30px; padding:0; font-size:calc(16px * var(--escala-fonte)); }
+.vz-filtro-limpar:hover{ color:var(--danger); border-color:var(--danger); }
+.vz-filtro-data{ flex-wrap:wrap; font-size:calc(12px * var(--escala-fonte)); color:var(--text-dim); }
+.vz-filtro-data label{ display:flex; align-items:center; gap:6px; }
+.vz-filtro-data input{ padding:5px 7px; border-radius:6px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-size:calc(12.5px * var(--escala-fonte)); color-scheme:inherit; }
+.vz-filtro-pop{
+  position:fixed; z-index:140; width:280px; max-height:320px; display:flex; flex-direction:column; gap:6px; padding:8px;
+  border-radius:10px; border:1px solid var(--border); background:var(--surface); box-shadow:var(--shadow);
+}
+.vz-filtro-acoes{ display:flex; gap:6px; }
+.vz-filtro-acoes button{ flex:1; border:1px solid var(--border); background:var(--surface-2); color:var(--text-dim); border-radius:6px; padding:4px; font-size:calc(11.5px * var(--escala-fonte)); }
+.vz-filtro-acoes button:hover{ border-color:var(--accent); color:var(--accent-light); }
+.vz-filtro-itens{ overflow:auto; flex:1; }
+.vz-filtro-item{ display:flex; align-items:center; gap:8px; padding:4px 6px; border-radius:5px; cursor:pointer; font-size:calc(12.5px * var(--escala-fonte)); }
+.vz-filtro-item:hover{ background:var(--surface-2); }
+.vz-filtro-item input{ accent-color:var(--accent); }
+.vz-filtro-item span:first-of-type{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.vz-filtro-n{ color:var(--text-faint); font-size:calc(11px * var(--escala-fonte)); }
+
+/* ---------- E2d · tela do usuário (relatório publicado) e menu das guias ---------- */
+.ed-modo-leitura .ed-so-admin{ display:none !important; }
+.ed-modo-leitura .ed-nome{ pointer-events:none; }
+/* Menu à esquerda (escolha do criador na aba Exibir): vale na Prévia e na tela do usuário */
+.ed-modo-previa.menu-esquerda .ed-centro{ flex-direction:row; }
+.ed-modo-previa.menu-esquerda .ed-guias{
+  flex-direction:column; gap:2px; width:200px; flex-shrink:0; padding:12px 8px; border-bottom:none; border-right:1px solid var(--border); overflow-y:auto;
+}
+.ed-modo-previa.menu-esquerda .ed-guia{ text-align:left; border-bottom:none; border-left:3px solid transparent; border-radius:0 6px 6px 0; margin:0; padding:9px 12px; white-space:normal; }
+.ed-modo-previa.menu-esquerda .ed-guia.ativa{ border-left-color:var(--accent); background:var(--accent-soft); }
+
+/* ---------- E2c · tabela dinâmica ---------- */
+.ed-vis-corpo:has(.vz-tabela){ padding:0; align-items:stretch; justify-content:flex-start; }
+.vz-tabela{ width:100%; flex:1 1 auto; min-height:0; overflow:auto; color:var(--text); font-size:calc(12px * var(--escala-fonte)); text-align:left; }
+/* ---------- Painel CSAT no Estúdio (13/10/2026): peças que copiam o painel em código ---------- */
+/* tabela: 1ª coluna forte, colunas de informação apagadas, CSAT verde/vermelho pela meta */
+.vz-tabela .vz-forte{ font-weight:500; }
+.vz-tabela .vz-fraco{ color:var(--text-dim); }
+.vz-tabela td.vz-meta-ok{ color:var(--success); font-weight:600; }
+.vz-tabela td.vz-meta-fora{ color:var(--danger); font-weight:600; }
+.vz-tabela td.vz-meta-fundo-ok{ background:var(--success-soft) !important; color:var(--success); }
+.vz-tabela td.vz-meta-fundo-fora{ background:var(--danger-soft) !important; color:var(--danger); }
+.vz-tabela td.vz-cel-sub{ text-align:center; line-height:1.25; }
+.vz-tabela td.vz-cel-sub b{ display:block; font-weight:600; }
+.vz-tabela td.vz-cel-sub small{ display:block; font-size:calc(10px * var(--escala-fonte)); opacity:.85; }
+.vz-tabela td.vz-cel-vazia{ text-align:center; color:var(--text-faint); }
+.vz-tabela .vz-sem-linhas{ text-align:center; color:var(--text-faint); padding:18px; }
+.vz-tabela .badge{ white-space:nowrap; }
+/* barra acima da tabela: situação · Extrair · busca */
+.vz-tab-barra{ display:flex; align-items:center; justify-content:flex-end; gap:8px; flex-wrap:wrap; padding:8px 10px; border-bottom:1px solid var(--border); flex-shrink:0; }
+.vz-tab-barra .btn-small{ width:auto; padding:5px 10px; }
+.vz-tab-sel{ padding:6px 9px; border-radius:8px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-size:calc(12.5px * var(--escala-fonte)); outline:none; }
+.vz-tab-sel option{ background:var(--surface); color:var(--text); }
+.vz-tab-busca{ display:flex; align-items:center; gap:6px; padding:5px 9px; border-radius:8px; border:1px solid var(--border); background:var(--surface-2); color:var(--text-faint); min-width:220px; }
+.vz-tab-busca input{ border:none; background:transparent; color:var(--text); outline:none; flex:1; font-size:calc(12.5px * var(--escala-fonte)); }
+.ed-vis-corpo:has(.vz-tab-barra){ flex-direction:column; }
+/* card: rótulo em cima, alinhado à esquerda, subtítulo e faixa colorida à esquerda (como os indicadores do painel) */
+.ed-vis.com-destaque{ border-left:4px solid var(--vis-destaque) !important; }
+.ed-vis-corpo.vz-card-esq{ align-items:flex-start; text-align:left; padding:10px 16px; }
+.vz-card-rot.acima{ order:-1; margin-bottom:6px; }
+.vz-card-sub{ font-size:calc(12px * var(--escala-fonte)); color:var(--text-faint); margin-top:6px; min-height:1.2em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+/* dica ao lado do título do visual (ex.: "O filtro de datas não se aplica ao gráfico") */
+.ed-vis-dica{ font-size:calc(11.5px * var(--escala-fonte)); color:var(--text-faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-left:10px; margin-right:auto; }
+/* filtro compacto (faixa de filtros): só o botão "Todas as ..." */
+.ed-vis-corpo.vz-corpo-compacto{ padding:2px 3px; }
+.vz-filtro-compacto .vz-filtro-btn{ padding:6px 10px; font-size:calc(13px * var(--escala-fonte)); color:var(--text-dim); }
+.vz-filtro-compacto .vz-filtro-btn.ativo{ background:var(--accent-soft); color:var(--accent-light); }
+/* visual que só aparece com um botão de outro visual ativo (ex.: tabela de intervalos só no Intrahora) */
+.ed-modo-previa #ed-grade .grid-stack-item.vz-oculto{ display:none !important; }
+#ed-grade .grid-stack-item.vz-oculto .ed-vis{ opacity:.45; border-style:dashed; }
+#ed-grade .grid-stack-item.vz-condicional .ed-vis-cab::after{ content:"condicional"; font-size:calc(10px * var(--escala-fonte)); color:var(--text-faint); border:1px dashed var(--border); border-radius:4px; padding:0 5px; margin-left:6px; }
+.ed-modo-previa #ed-grade .grid-stack-item.vz-condicional .ed-vis-cab::after{ display:none; }
+/* guias no cabeçalho (como o Painel CSAT) */
+.ed-top:has(.ed-guias.no-cabecalho) .ed-nome-wrap{ flex:0 1 auto; }
+.ed-guias.no-cabecalho{ background:transparent; border-bottom:none; align-self:stretch; flex:1; min-width:0; padding:0 8px; }
+.ed-guias.no-cabecalho .ed-guia{ padding:0 14px; font-size:calc(14px * var(--escala-fonte)); }
+/* meta no cabeçalho */
+.ed-meta.so-leitura .ed-meta-btn{ display:none; }
+.ed-acoes .link-btn{ margin-left:0; white-space:nowrap; }
+.vz-tabela table{ border-collapse:separate; border-spacing:0; min-width:100%; font-size:inherit; }
+.vz-tabela th, .vz-tabela td{ padding:5px 10px; white-space:nowrap; border-bottom:1px solid var(--border); }
+/* cabeçalho fixo ao rolar */
+.vz-tabela thead th{ position:sticky; top:0; z-index:1; background:var(--vz-cab, var(--surface-2)); color:var(--text-dim); font-weight:600; }
+.vz-tabela thead tr:nth-child(2) th{ top:calc(26px * var(--escala-fonte)); }
+.vz-tabela .num{ text-align:right; font-variant-numeric:tabular-nums; }
+.vz-tabela .vz-th-col{ text-align:center; border-left:1px solid var(--border); }
+.vz-tabela .vz-ord{ cursor:pointer; user-select:none; }
+.vz-tabela .vz-ord:hover{ color:var(--accent-light); }
+.vz-tabela .vz-rot{ position:sticky; left:0; background:var(--vis-fundo, var(--surface)); max-width:260px; overflow:hidden; text-overflow:ellipsis; }
+.vz-tabela thead .vz-rot{ z-index:2; background:var(--vz-cab, var(--surface-2)); }
+.vz-tabela .vz-zebra td{ background:var(--surface-2); }
+.vz-tabela .vz-grupo td{ font-weight:600; }
+.vz-tabela .vz-total td{ font-weight:700; border-top:2px solid var(--border); background:var(--surface-2); }
+.vz-abre{ border:1px solid var(--border); background:var(--surface-2); color:var(--text-dim); border-radius:4px; width:16px; height:16px; line-height:12px; padding:0; margin-right:6px; font-size:12px; }
+.vz-aviso{ padding:6px 10px; font-size:calc(11px * var(--escala-fonte)); color:var(--text-faint); }
+
+/* ---------- E2c · aba Formatar ---------- */
+.vz-fmt{ display:flex; flex-direction:column; gap:8px; }
+.vz-fmt-grupo{ border:1px solid var(--border); border-radius:8px; background:var(--surface-2); }
+.vz-fmt-grupo summary{ cursor:pointer; padding:8px 10px; font-size:calc(12.5px * var(--escala-fonte)); font-weight:600; color:var(--text); }
+.vz-fmt-corpo{ padding:2px 10px 10px; }
+.vz-fmt-lin{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:8px; font-size:calc(12px * var(--escala-fonte)); color:var(--text-dim); }
+.vz-fmt-chk{ cursor:pointer; }
+.vz-fmt-chk input{ accent-color:var(--accent); width:16px; height:16px; }
+.vz-fmt-num{ width:76px; padding:4px 6px; }
+.vz-fmt-sel{ width:140px; padding:4px 6px; }
+.vz-fmt-cor{ display:inline-flex; align-items:center; gap:6px; }
+.vz-fmt-cor input[type=color]{ width:28px; height:22px; padding:0; border:1px solid var(--border); border-radius:5px; background:transparent; cursor:pointer; }
+.vz-fmt-cor input.auto{ opacity:.45; }
+.vz-fmt-auto{ border:1px solid var(--border); background:var(--surface); color:var(--text-dim); border-radius:5px; padding:1px 7px; font-size:calc(11px * var(--escala-fonte)); }
+.vz-fmt-auto:hover{ border-color:var(--accent); color:var(--accent-light); }
+.vz-fmt-paleta{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+
+/* Janela de medida (dentro do editor) */
+.vz-janela{ z-index:130; }
+/* ---------- Janela de fórmula DAX (12/10/2026) ---------- */
+/* cores da fórmula: escuro e claro */
+.vz-dax-jan{ --dx-fn:#e8894f; --dx-med:#e0b04a; --dx-col:#6aa8f0; --dx-str:#4fc28f; --dx-num:#b3a8f5; --dx-kw:#e07ab0; --dx-var:#7fd0d8; }
+[data-theme="light"] .vz-dax-jan{ --dx-fn:#c4511f; --dx-med:#a36d00; --dx-col:#1f63b8; --dx-str:#13804f; --dx-num:#5a4bb8; --dx-kw:#b13a7a; --dx-var:#11727c; }
+/* caixa com tamanho ajustável: arraste o canto inferior direito (resize) ou use o botão maximizar */
+.vz-dax-jan{
+  position:relative; display:flex; flex-direction:column; width:min(1100px, 94vw); height:min(660px, 88vh);
+  min-width:640px; min-height:420px; max-width:98vw; max-height:96vh; resize:both; overflow:hidden;
+  background:var(--surface); border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow);
+}
+.vz-dax-jan.max{ width:98vw !important; height:96vh !important; resize:none; }
+.vz-dax-cab{ display:flex; align-items:center; gap:10px; padding:10px 12px; border-bottom:1px solid var(--border); flex-wrap:wrap; }
+.vz-dax-fx{ font-family:'Cascadia Mono',Consolas,monospace; font-style:italic; font-weight:700; color:var(--accent-light); font-size:calc(15px * var(--escala-fonte)); }
+.vz-dax-titulo{ font-weight:600; font-size:calc(14px * var(--escala-fonte)); margin-right:8px; }
+.vz-dax-rot{ font-size:calc(12px * var(--escala-fonte)); color:var(--text-dim); }
+.vz-dax-nome, .vz-dax-sel{ padding:6px 9px; border-radius:7px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-size:calc(13px * var(--escala-fonte)); outline:none; }
+.vz-dax-nome{ width:220px; font-weight:600; }
+.vz-dax-nome:focus, .vz-dax-sel:focus{ border-color:var(--accent); }
+.vz-dax-sel option{ background:var(--surface); color:var(--text); }
+.vz-dax-esp{ flex:1; }
+.vz-dax-corpo{ flex:1; min-height:0; display:grid; grid-template-columns:minmax(0, 1fr) 290px; }
+.vz-dax-esq{ display:flex; flex-direction:column; min-height:0; padding:12px; gap:8px; }
+/* editor: números das linhas + área onde o texto colorido (pre) fica atrás do campo de digitação transparente */
+.vz-dax-editor{ position:relative; flex:1; min-height:0; display:flex; border:1px solid var(--border); border-radius:8px; background:var(--surface-2); overflow:hidden; }
+.vz-dax-editor:focus-within{ border-color:var(--accent); }
+.vz-dax-linhas{ padding:12px 8px 12px 10px; text-align:right; color:var(--text-faint); user-select:none; overflow:hidden; border-right:1px solid var(--border); min-width:34px; }
+.vz-dax-linhas, .vz-dax-cor, #vz-m-formula{ font-family:'Cascadia Mono',Consolas,'Courier New',monospace; font-size:calc(13.5px * var(--escala-fonte)); line-height:1.65; tab-size:4; }
+.vz-dax-area{ position:relative; flex:1; min-width:0; }
+.vz-dax-cor, #vz-m-formula{ position:absolute; inset:0; margin:0; padding:12px 14px; white-space:pre; overflow:auto; border:0; }
+.vz-dax-cor{ color:var(--text); pointer-events:none; overflow:hidden; }
+#vz-m-formula{ background:transparent; color:transparent; caret-color:var(--text); resize:none; outline:none; }
+#vz-m-formula::placeholder{ color:var(--text-faint); }
+#vz-m-formula::selection{ background:var(--accent-soft); color:transparent; }
+.dx-fn{ color:var(--dx-fn); font-weight:600; } .dx-med{ color:var(--dx-med); } .dx-col{ color:var(--dx-col); }
+.dx-str{ color:var(--dx-str); } .dx-num{ color:var(--dx-num); } .dx-kw{ color:var(--dx-kw); font-weight:600; }
+.dx-var{ color:var(--dx-var); } .dx-tab{ color:var(--dx-col); font-style:italic; } .dx-com{ color:var(--text-faint); font-style:italic; }
+.dx-erro{ text-decoration:underline wavy var(--danger); text-underline-offset:3px; }
+/* sugestões que aparecem embaixo do cursor */
+.vz-dax-sug{ position:absolute; z-index:5; width:320px; max-height:260px; overflow:auto; padding:4px; border-radius:8px; border:1px solid var(--border); background:var(--surface); box-shadow:var(--shadow); }
+.vz-dax-sug-item{ display:flex; align-items:center; gap:8px; padding:5px 8px; border-radius:5px; cursor:pointer; font-size:calc(12.5px * var(--escala-fonte)); }
+.vz-dax-sug-item.sel, .vz-dax-sug-item:hover{ background:var(--accent-soft); }
+.vz-dax-sug-ico{ width:16px; text-align:center; flex-shrink:0; }
+.vz-dax-sug-desc{ margin-left:auto; color:var(--text-faint); font-size:calc(11px * var(--escala-fonte)); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:160px; }
+.vz-dax-status{ margin-top:0; }
+.vz-dax-ok{ color:var(--success, #1baf7a); font-weight:700; margin-right:4px; }
+.vz-dax-sql summary{ cursor:pointer; font-size:calc(12px * var(--escala-fonte)); color:var(--text-faint); }
+.vz-dax-sql pre{ margin:6px 0 0; padding:8px 10px; max-height:120px; overflow:auto; white-space:pre-wrap; word-break:break-word; border-radius:6px; background:var(--surface-2); color:var(--text-dim); font-family:'Cascadia Mono',Consolas,monospace; font-size:calc(11.5px * var(--escala-fonte)); }
+/* lista à direita: medidas, colunas e funções (clique insere) */
+.vz-dax-lista{ display:flex; flex-direction:column; min-height:0; border-left:1px solid var(--border); padding:12px 10px; gap:8px; }
+.vz-dax-itens{ flex:1; overflow:auto; }
+.vz-dax-grupo{ font-size:calc(11px * var(--escala-fonte)); text-transform:uppercase; letter-spacing:.05em; color:var(--text-faint); margin:10px 4px 4px; }
+.vz-dax-item{ display:flex; flex-wrap:wrap; align-items:center; gap:0 8px; width:100%; border:none; background:transparent; padding:5px 6px; border-radius:6px; text-align:left; font-size:calc(12.5px * var(--escala-fonte)); cursor:pointer; }
+.vz-dax-item:hover{ background:var(--accent-soft); }
+.vz-dax-item-nome{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:220px; }
+.vz-dax-item-desc{ width:100%; padding-left:24px; color:var(--text-faint); font-size:calc(11px * var(--escala-fonte)); line-height:1.3; }
+.vz-dax-rodape{ display:flex; align-items:center; gap:8px; padding:10px 12px; border-top:1px solid var(--border); }
+.vz-dax-dica{ flex:1; font-size:calc(11.5px * var(--escala-fonte)); color:var(--text-faint); }
+.vz-previa{ margin-top:6px; padding:12px 14px; border-radius:8px; background:var(--surface-2); border:1px solid var(--border); font-size:calc(13.5px * var(--escala-fonte)); }
+.vz-previa b{ font-family:'Space Grotesk',sans-serif; font-size:calc(17px * var(--escala-fonte)); color:var(--accent-light); }
