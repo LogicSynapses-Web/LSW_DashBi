@@ -431,6 +431,36 @@ tr.est-desligada td.est-ck:first-child{ opacity:1; }
 .vz-fmt-auto:hover{ border-color:var(--accent); color:var(--accent-light); }
 .vz-fmt-paleta{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
 
+/* Paleta de cores (como a do Excel): botão com a cor atual + janelinha com tema, padrão, recentes, #hex e mais cores */
+.vz-cor-btn{ display:inline-flex; align-items:center; gap:6px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); border-radius:6px; padding:2px 6px 2px 3px; font-size:calc(11px * var(--escala-fonte)); font-family:inherit; cursor:pointer; }
+.vz-cor-btn:hover{ border-color:var(--accent); }
+.vz-cor-btn i{ width:18px; height:16px; border-radius:4px; border:1px solid var(--border); flex-shrink:0; }
+.vz-cor-btn.auto i{ background-image:linear-gradient(135deg, transparent 45%, var(--danger) 45% 55%, transparent 55%) !important; }
+.vz-cor-btn.auto span{ color:var(--text-faint); }
+.vz-cor-btn b{ font-weight:400; color:var(--text-faint); font-size:calc(9px * var(--escala-fonte)); }
+.vz-fmt-serie{ display:inline-flex; align-items:center; gap:3px; font-size:calc(10.5px * var(--escala-fonte)); color:var(--text-faint); }
+.vz-fmt-serie .vz-cor-btn span{ display:none; }
+.vz-cores{ position:fixed; z-index:300; width:252px; background:var(--surface); border:1px solid var(--border); border-radius:10px; box-shadow:var(--shadow); padding:10px; display:flex; flex-direction:column; gap:6px; }
+.vz-cores-rot{ font-size:calc(11px * var(--escala-fonte)); color:var(--text-faint); margin-top:2px; }
+.vz-cores-tema{ display:grid; grid-template-columns:repeat(10, 1fr); gap:3px; }
+.vz-cores-col{ display:flex; flex-direction:column; gap:2px; }
+.vz-cores-col .vz-cor-am:first-child{ margin-bottom:3px; }
+.vz-cores-linha{ display:grid; grid-template-columns:repeat(10, 1fr); gap:3px; }
+.vz-cor-am{ width:100%; aspect-ratio:1; border:1px solid rgba(128,128,128,.35); border-radius:3px; padding:0; cursor:pointer; }
+.vz-cor-am:hover{ outline:2px solid var(--accent); outline-offset:1px; }
+.vz-cores-auto{ display:flex; align-items:center; gap:8px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); border-radius:6px; padding:5px 8px; font-size:calc(12px * var(--escala-fonte)); cursor:pointer; text-align:left; }
+.vz-cores-auto i{ width:16px; height:14px; border:1px solid var(--border); border-radius:3px; background-image:linear-gradient(135deg, transparent 45%, var(--danger) 45% 55%, transparent 55%); }
+/* "Sem preenchimento": xadrez (o fundo da página aparece por trás) */
+i.vz-cor-sem, .vz-cores-auto i.vz-cor-sem{ background-color:var(--surface) !important;
+  background-image:linear-gradient(45deg, var(--surface-3) 25%, transparent 25%, transparent 75%, var(--surface-3) 75%), linear-gradient(45deg, var(--surface-3) 25%, transparent 25%, transparent 75%, var(--surface-3) 75%) !important;
+  background-size:8px 8px !important; background-position:0 0, 4px 4px !important; }
+.vz-cores-auto:hover, .vz-cores-mais:hover{ border-color:var(--accent); }
+.vz-cores-hex{ display:flex; align-items:center; gap:6px; margin-top:4px; }
+.vz-cores-hex label{ color:var(--text-faint); font-family:monospace; }
+.vz-cores-hex input{ flex:1; min-width:0; padding:5px 7px; border:1px solid var(--border); border-radius:6px; background:var(--surface-2); color:var(--text); font-family:monospace; font-size:calc(12px * var(--escala-fonte)); }
+.vz-cores-mais{ position:relative; display:block; border:1px solid var(--border); border-radius:6px; padding:5px 8px; font-size:calc(12px * var(--escala-fonte)); color:var(--text); cursor:pointer; }
+.vz-cores-mais input{ position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; }
+
 /* Janela de medida (dentro do editor) */
 .vz-janela{ z-index:130; }
 /* ---------- Janela de fórmula DAX (12/10/2026) ---------- */

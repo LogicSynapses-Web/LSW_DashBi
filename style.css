@@ -36,15 +36,16 @@
       color-scheme: dark; /* avisa o navegador: listas abertas e barras de rolagem no padrão escuro */
     }
 
+    /* Tema claro em tons de areia: menos brilho que o branco puro */
     [data-theme="light"]{
-      --bg:#f2f3f6;
-      --surface:#ffffff;
-      --surface-2:#f7f8fa;
-      --surface-3:#eef0f3;
-      --border:#e1e3e9;
-      --text:#1a1b23;
-      --text-dim:#666879;
-      --text-faint:#9a9cae;
+      --bg:#ece7de;
+      --surface:#f8f5ef;
+      --surface-2:#f2eee6;
+      --surface-3:#e8e2d7;
+      --border:#ddd5c7;
+      --text:#24211c;
+      --text-dim:#6b6457;
+      --text-faint:#9d9586;
       --accent:#c9793f;
       --accent-light:#d98a52;
       --accent-dark:#a85f2d;
@@ -281,6 +282,18 @@
     .nav-item.active{ background:var(--accent-soft); color:var(--accent-light); }
     .sidebar.collapsed .nav-item span.label{ display:none; }
     .sidebar.collapsed .nav-item{ justify-content:center; }
+    /* Grupos do menu (Quadro, Administração): seta à direita; as subseções abrem embaixo, recuadas */
+    .sidebar-nav{ overflow-y:auto; }
+    .nav-grupo-btn .nav-seta{ width:14px; height:14px; margin-left:auto; transition:transform .15s ease; opacity:.7; }
+    .nav-grupo-btn .nav-badge + .nav-seta{ margin-left:6px; }
+    .nav-grupo.aberto .nav-seta{ transform:rotate(90deg); }
+    .nav-grupo:has(.nav-subitem.active) > .nav-grupo-btn{ color:var(--text); }
+    .nav-sub{ display:none; flex-direction:column; gap:2px; margin:2px 0 4px 21px; padding-left:10px; border-left:1px solid var(--border); }
+    .nav-grupo.aberto .nav-sub{ display:flex; }
+    .nav-subitem{ padding:7px 10px; font-size:calc(13px * var(--escala-fonte)); font-weight:400; }
+    .nav-subitem .nav-badge{ margin-left:auto; }
+    .nav-badge-suave{ background:var(--surface-3) !important; color:var(--text-dim) !important; }
+    .sidebar.collapsed .nav-sub, .sidebar.collapsed .nav-seta{ display:none !important; }
 
     /* Seta de recolher: botão redondo "montado" na divisa entre o menu lateral e o cabeçalho.
        right:-13px = metade do botão (26px) para fora do menu; top = meio da altura do cabeçalho */
@@ -329,7 +342,7 @@
     .logout-btn:hover{ color:var(--danger); }
     .logout-btn svg{ width:18px; height:18px; }
 
-    .content{ padding:28px 28px 60px; margin-top:var(--header-h); max-width:1200px; }
+    .content{ padding:20px 28px 18px; margin-top:var(--header-h); } /* altura e rolagem: ver "Tela inteira" no fim do arquivo */
 
     /* ---------- shared bits ---------- */
     .page-head{ display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:24px; gap:16px; flex-wrap:wrap; }
@@ -700,6 +713,112 @@
     #toast.erro{ border-color:var(--danger); }
 
     @media (max-width: 720px){
-      .content{ padding:20px 16px 60px; }
+      .content{ padding:20px 16px 40px; }
       .field-row{ grid-template-columns:1fr; }
+    }
+
+    /* ---------- Usuários e relatórios: perfil de acesso e operações (15/10/2026) ---------- */
+    .campo-com-botao{ display:flex; gap:8px; align-items:stretch; }
+    .campo-com-botao select{ flex:1; min-width:0; }
+    .modal .field select{ width:100%; }
+    .ops-escolha{ display:flex; flex-wrap:wrap; gap:6px 14px; padding:10px 12px; border:1px solid var(--border); border-radius:9px; background:var(--surface-2); min-height:42px; }
+    .ops-item{ display:inline-flex; align-items:center; gap:6px; font-size:calc(13.5px * var(--escala-fonte)); color:var(--text); }
+    .ops-item input{ accent-color:var(--accent); width:15px; height:15px; }
+    .field-hint{ font-size:calc(12px * var(--escala-fonte)); color:var(--text-faint); margin-top:6px; }
+
+    /* ---------- Administração › Perfis ---------- */
+    .ap-sub{ font-size:calc(12px * var(--escala-fonte)); color:var(--text-faint); }
+    .ap-editor{ padding:14px 16px; }
+    .ap-cabeca{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .ap-nome{ flex:1; min-width:200px; padding:8px 10px; border-radius:8px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font:inherit; font-weight:600; font-size:calc(15px * var(--escala-fonte)); outline:none; }
+    .ap-nome:focus{ border-color:var(--accent); } .ap-nome option{ background:var(--surface); color:var(--text); font-weight:400; } select.ap-nome{ cursor:pointer; }
+    .ap-botoes{ display:flex; gap:6px; margin-left:auto; }
+    .ap-dica{ font-size:calc(12.5px * var(--escala-fonte)); color:var(--text-dim); margin:10px 0 12px; }
+    .ap-tabela{ overflow:auto; border:1px solid var(--border); border-radius:var(--radius); }
+    .ap-tabela thead th{ position:sticky; top:0; z-index:1; background:var(--surface-2); padding:12px 10px; }
+    .ap-tabela tbody td{ padding:9px 10px; font-size:calc(13px * var(--escala-fonte)); }
+    .ap-tabela tbody tr:hover td{ background:var(--surface-2); }
+    .ap-grupo .ap-opcao{ font-weight:500; }
+    .ap-nivel-0 td{ background:color-mix(in srgb, var(--surface-2) 60%, transparent); }
+    .ap-ck{ text-align:center; width:110px; }
+    .ap-ck input{ accent-color:var(--accent); width:16px; height:16px; }
+    .ap-abrir{ text-align:right; width:130px; }
+    .ap-link{ background:none; border:none; color:var(--text-dim); font:inherit; font-size:calc(12.5px * var(--escala-fonte)); cursor:pointer; }
+    .ap-link:hover{ color:var(--accent-light); }
+    /* Administração › Operações: tabela operação · cliente · situação */
+    .ao{ padding:0; }
+    .ao-topo{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:12px; font-size:calc(14px * var(--escala-fonte)); }
+    .ao-tabela td{ padding:9px 10px; font-size:calc(13px * var(--escala-fonte)); vertical-align:middle; }
+    .ao-num{ text-align:right; width:90px; }
+    .ao-acoes{ text-align:right; white-space:nowrap; width:190px; }
+    .ao-acoes .btn{ margin-left:4px; }
+    .ao-inativa td{ color:var(--text-faint); }
+    .ao-campo{ width:100%; padding:7px 9px; border-radius:8px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font:inherit; font-size:calc(13px * var(--escala-fonte)); outline:none; }
+    .ao-campo:focus{ border-color:var(--accent); }
+    .ao-editando td{ background:var(--accent-soft); }
+    @media (max-width: 700px){ .ao-topo{ flex-direction:column; } }
+    .ap-chave{ font-family:'Cascadia Mono', Consolas, monospace; font-size:calc(11.5px * var(--escala-fonte)) !important; color:var(--text-faint); }
+
+    /* ---------- Sobre o sistema (ícone (i)): página de autoria em tela cheia ---------- */
+    .sobre-overlay{ display:none; position:fixed; inset:0; z-index:120; background:var(--bg); overflow-y:auto; padding:56px 16px; }
+    .sobre-overlay.active{ display:flex; justify-content:center; align-items:flex-start; }
+    .sobre-fechar{ position:fixed; top:16px; right:16px; }
+    .sobre-conteudo{ width:100%; max-width:640px; text-align:center; margin:auto 0; }
+    .sobre-logo{ width:96px; height:96px; border-radius:22px; box-shadow:var(--shadow); }
+    .sobre-kicker{ margin-top:20px; color:var(--accent-light); font-size:calc(12px * var(--escala-fonte)); font-weight:600; letter-spacing:.1em; text-transform:uppercase; }
+    .sobre-conteudo h1{ font-size:calc(30px * var(--escala-fonte)); margin:8px 0 10px; }
+    .sobre-autor{ font-size:calc(17px * var(--escala-fonte)); color:var(--text-dim); }
+    .sobre-autor b{ color:var(--text); }
+    .sobre-autor span{ margin:0 6px; color:var(--text-faint); }
+    .sobre-marca{ background:linear-gradient(120deg, #7b5cff, #d35bd0, #ff9a3d); -webkit-background-clip:text; background-clip:text; color:transparent !important; }
+    .sobre-bloco{ margin:26px 0 18px; padding:16px 18px; border:1px solid var(--border); border-radius:var(--radius); background:var(--surface); color:var(--text-dim); font-size:calc(14.5px * var(--escala-fonte)); line-height:1.6; }
+    .sobre-bloco b{ color:var(--text); }
+    .sobre-versoes{ display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; text-align:left; }
+    .sobre-versoes div{ padding:12px 14px; border:1px solid var(--border); border-radius:var(--radius); background:var(--surface); }
+    .sobre-versoes b{ display:block; font-family:'Space Grotesk', sans-serif; font-size:calc(18px * var(--escala-fonte)); color:var(--accent-light); }
+    .sobre-versoes span{ font-size:calc(12.5px * var(--escala-fonte)); color:var(--text-dim); line-height:1.45; }
+    .sobre-direitos{ margin-top:26px; padding-top:18px; border-top:1px solid var(--border); color:var(--text-faint); font-size:calc(12.5px * var(--escala-fonte)); line-height:1.6; }
+    .sobre-direitos p + p{ margin-top:6px; }
+    .sobre-direitos b{ color:var(--text-dim); }
+    .login-footer .sobre-link{ margin-left:0; font-size:inherit; color:#9a9cae; }
+    .login-footer .sobre-link:hover{ color:var(--accent-light); }
+    @media (max-width: 560px){ .sobre-versoes{ grid-template-columns:1fr; } }
+
+    /* ===================================================================
+       TELA INTEIRA (Fase 4.1 · 15/10/2026)
+       A página não rola: cada seção ocupa a altura da tela (100vh − cabeçalho).
+       Listas e tabelas (.tela-tabela) esticam até o fim e rolam por dentro,
+       com o cabeçalho da tabela fixo. Telas sem tabela (Painel, Cargas,
+       Configurações…) só rolam se passarem da altura da tela.
+       =================================================================== */
+    .content{ height:calc(100vh - var(--header-h)); display:flex; flex-direction:column; }
+    /* A área principal não pode ter altura mínima de 100vh: somada aos 64 px do cabeçalho, a página ficava maior que a tela (rolagem da página) */
+    .main-area{ min-height:0; display:flow-root; } /* flow-root: a margem de cima do conteúdo fica dentro da área (não "vaza" e não soma altura) */
+    @media (min-width: 721px){ html:has(#app-shell.active), body:has(#app-shell.active){ overflow:hidden; } }
+    .content > section:not(.hidden){ flex:1 1 0; min-height:0; overflow:auto; display:flex; flex-direction:column; }
+    .content > section > *{ flex-shrink:0; }
+    /* Conteúdos desenhados por JS (Estúdio, Quadro, Perfis, Operações): ocupam o resto da altura */
+    .content > section > [id$="-conteudo"], #qd-corpo{ flex:1 0 auto; display:flex; flex-direction:column; }
+    [id$="-conteudo"] > *, #qd-corpo > *{ flex-shrink:0; }
+    /* Bloco que estica até o fim da tela; a tabela dentro dele é que rola */
+    .tela-tabela{ flex:1 1 0 !important; min-height:240px; display:flex; flex-direction:column; overflow:hidden; }
+    .tela-tabela > .table-wrap{ flex:1 1 0; min-height:0; overflow:auto; padding:0 18px 4px; } .tela-tabela > .ap-tabela{ padding:0; }
+    .tela-col{ flex:1 1 0; min-height:0; display:flex; flex-direction:column; }
+    .tela-col > .table-wrap, .tela-tabela .ap-tabela{ flex:1 1 0; min-height:0; overflow:auto; }
+    :where(.tela-tabela) thead th{ position:sticky; top:0; z-index:2; background:var(--surface); padding-top:14px; }
+    .tela-tabela > .empty-state{ margin:auto; }
+    /* Botões no canto do cabeçalho da tabela (ex.: "Novo usuário"), no tamanho da fonte da tabela */
+    .th-acao{ text-align:right !important; width:1%; padding-bottom:8px !important; vertical-align:bottom; }
+    .th-acao .btn, .empty-acoes .btn{ text-transform:none; letter-spacing:normal; font-weight:500; width:auto; white-space:nowrap; }
+    .th-botoes, .empty-acoes{ display:inline-flex; gap:6px; justify-content:flex-end; }
+    .empty-acoes{ margin-top:14px; justify-content:center; }
+    /* Relatórios: busca parada, só os cards rolam */
+    #reports-grid{ flex:1 1 0; min-height:0; overflow:auto; align-content:start; padding:4px; margin:-4px; }
+    /* Configurações continuam numa coluna de leitura confortável */
+    #view-settings > *{ max-width:1200px; }
+    /* Celular: volta a rolar a página inteira */
+    @media (max-width: 720px){
+      .content{ height:auto; min-height:calc(100vh - var(--header-h)); }
+      .content > section:not(.hidden), #reports-grid, .tela-tabela{ flex:none !important; overflow:visible; }
+      .tela-tabela > .table-wrap, .tela-col > .table-wrap{ max-height:75vh; }
     }

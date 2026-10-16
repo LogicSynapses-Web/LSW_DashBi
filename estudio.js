@@ -164,15 +164,11 @@ async function estAbrir(){
   }
   if (!est.assist) estRender();
 }
-function estTrocarAba(aba){ est.aba = aba; est.novoRel = false; estRender(); }
+// Bases de dados e Relatórios são subseções do menu lateral (Estúdio › …); trocar por aqui faz o menu acompanhar
+function estTrocarAba(aba){ est.novoRel = false; if (typeof switchView === 'function') switchView('estudio', aba, true); else { est.aba = aba; estRender(); } }
 
-// Abas do Estúdio: Bases (E1) e Relatórios (editor, E2)
-function estHtmlAbas(){
-  return `<div class="est-abas">
-    <button class="est-aba ${est.aba === 'bases' ? 'ativa' : ''}" onclick="estTrocarAba('bases')">Bases de dados <span>${est.bases.length}</span></button>
-    <button class="est-aba ${est.aba === 'relatorios' ? 'ativa' : ''}" onclick="estTrocarAba('relatorios')">Relatórios <span>${est.relatorios.filter(r => !r.arquivado).length}</span></button>
-  </div>`;
-}
+// Botões que ficam no cabeçalho da tabela (canto direito), no lugar da antiga linha de título
+const EST_ICONE_MAIS = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
 
 function estHtmlRelatorios(){
   const form = est.novoRel ? `
@@ -205,25 +201,19 @@ function estHtmlRelatorios(){
       <td><div class="row-actions"><button class="btn btn-primary btn-small" style="width:auto" onclick="edAbrir(${r.id})">Editar</button>
         <button class="btn btn-danger-ghost btn-small" style="width:auto" onclick="estArquivarRelatorio(${r.id}, true)">Arquivar</button></div></td>
     </tr>`).join('');
+  const botoes = `<span class="th-botoes">
+      <button class="btn btn-ghost btn-small" onclick="estAbrirArquivados()" title="Relatórios arquivados (podem ser reativados)">Arquivados (${nArq})</button>
+      <button class="btn btn-primary btn-small" onclick="estNovoRelatorio()" ${est.bases.length ? '' : 'disabled title="Crie uma base primeiro"'}>${EST_ICONE_MAIS} Novo relatório</button></span>`;
   return `
-    <div class="page-head">
-      <div><p>Relatórios montados no editor: você escolhe a base, cria as medidas e desenha cards, gráficos e tabelas do seu jeito.</p></div>
-      <div style="display:flex;gap:8px">
-      <button class="btn btn-ghost" style="width:auto" onclick="estAbrirArquivados()" title="Relatórios arquivados (podem ser reativados)">Arquivados (${nArq})</button>
-      <button class="btn btn-primary" style="width:auto" onclick="estNovoRelatorio()" ${est.bases.length ? '' : 'disabled title="Crie uma base primeiro"'}>
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Novo relatório
-      </button>
-      </div>
-    </div>
     ${form}
-    <div class="panel"><div class="panel-body" style="padding-top:16px">
+    <div class="panel tela-tabela">
       ${ativos.length ? `<div class="table-wrap"><table>
-        <thead><tr><th>Relatório</th><th>Base</th><th class="num">Guias</th><th class="num">Visuais</th><th>Atualizado</th><th>Publicação</th><th></th></tr></thead>
+        <thead><tr><th>Relatório</th><th>Base</th><th class="num">Guias</th><th class="num">Visuais</th><th>Atualizado</th><th>Publicação</th><th class="th-acao">${botoes}</th></tr></thead>
         <tbody>${linhas}</tbody></table></div>`
       : `<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
-         <p>${est.bases.length ? (nArq ? 'Nenhum relatório ativo. Veja os <b>Arquivados</b> ou clique em <b>Novo relatório</b>.' : 'Nenhum relatório ainda. Clique em <b>Novo relatório</b>.') : 'Primeiro crie uma base na aba <b>Bases de dados</b>.'}</p></div>`}
-    </div></div>`;
+         <p>${est.bases.length ? (nArq ? 'Nenhum relatório ativo. Veja os <b>Arquivados</b> ou clique em <b>Novo relatório</b>.' : 'Nenhum relatório ainda. Clique em <b>Novo relatório</b>.') : 'Primeiro crie uma base em <b>Estúdio › Bases de dados</b>.'}</p>
+         <div class="empty-acoes">${botoes}</div></div>`}
+    </div>`;
 }
 // Arquivar = como "Descontinuar" em Relatórios: sai da lista (fica em Arquivados) e, se publicado, o card some para os usuários
 async function estArquivarRelatorio(id, arquivar){
@@ -270,7 +260,7 @@ function estRender(){
   const alvo = estEl('estudio-conteudo');
   if (!alvo) return;
   alvo.innerHTML = est.assist ? estHtmlAssistente()
-    : estHtmlAbas() + (est.aba === 'relatorios' ? estHtmlRelatorios() : estHtmlLista());
+    : (est.aba === 'relatorios' ? estHtmlRelatorios() : estHtmlLista());
   if (est.assist) estDepoisRender();
 }
 
@@ -288,21 +278,15 @@ function estHtmlLista(){
         ? '<span class="badge badge-on" title="Lê as avaliações do Painel CSAT direto do banco (um mês por vez); os dados entram pela importação do Painel CSAT">Ligada ao banco</span>'
         : `<button class="btn btn-primary btn-small" style="width:auto" onclick="estCarregarDados(${b.id})">Carregar dados</button>`}</div></td>
     </tr>`).join('');
+  const botao = `<button class="btn btn-primary btn-small" onclick="estNovaBase()" title="Cada carga é tratada no seu navegador e guardada compactada, um arquivo por dia">${EST_ICONE_MAIS} Nova base</button>`;
   return `
-    <div class="page-head">
-      <div><p>Bases de dados que alimentam os relatórios do Estúdio. Cada carga é tratada no seu navegador e guardada compactada, um arquivo por dia.</p></div>
-      <button class="btn btn-primary" style="width:auto" onclick="estNovaBase()">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Nova base
-      </button>
-    </div>
-    <div class="panel"><div class="panel-body" style="padding-top:16px">
+    <div class="panel tela-tabela">
       ${est.bases.length ? `<div class="table-wrap"><table>
-        <thead><tr><th>Base</th><th class="num">Colunas</th><th>Período</th><th class="num">Dias</th><th class="num">Linhas</th><th class="num">Tamanho</th><th>Última carga</th><th></th></tr></thead>
+        <thead><tr><th>Base</th><th class="num">Colunas</th><th>Período</th><th class="num">Dias</th><th class="num">Linhas</th><th class="num">Tamanho</th><th>Última carga</th><th class="th-acao">${botao}</th></tr></thead>
         <tbody>${linhas}</tbody></table></div>`
       : `<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>
-         <p>Nenhuma base ainda. Clique em <b>Nova base</b> e escolha uma planilha.</p></div>`}
-    </div></div>`;
+         <p>Nenhuma base ainda. Clique em <b>Nova base</b> e escolha uma planilha.</p><div class="empty-acoes">${botao}</div></div>`}
+    </div>`;
 }
 
 /* ---------------- assistente (Nova base / Carregar dados) ---------------- */

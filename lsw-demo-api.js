@@ -31,18 +31,33 @@ const LSW_DEMO = (() => {
   async function carregar() {
     db = await idbLer('kv', 'db').catch(() => null);
     if (!db || db.versao !== 1) { db = semente(); await idbGravar('kv', 'db', db); }
+    if (!db.perfis_acesso) { semearAcessos(db); await idbGravar('kv', 'db', db); } // demonstração salva antes dos perfis
+    if ((db.operacoes || []).some(o => o.ativo === undefined)) { db.operacoes.forEach(o => { if (o.ativo === undefined) o.ativo = true; }); await idbGravar('kv', 'db', db); }
+  }
+  // Perfis de acesso e operações da demonstração (o SUPERVISOR mostra um perfil com só parte do sistema)
+  function semearAcessos(d) {
+    d.seq.perfil = 4; d.seq.oper = 3;
+    d.perfis_acesso = [
+      { id: 1, nome: 'ADMINISTRADOR', permissoes: ['*'], sistema: true, criado_em: agora() },
+      { id: 2, nome: 'USUÁRIO', permissoes: ['relatorios'], sistema: true, criado_em: agora() },
+      { id: 3, nome: 'SUPERVISOR', permissoes: ['relatorios', 'quadro', 'quadro.atual', 'quadro.painel', 'quadro.solicitacoes', 'quadro.solicitar'], sistema: false, criado_em: agora() },
+    ];
+    d.operacoes = [{ id: 1, nome: 'CENTRAL ATENDE', cliente: 'CENTRAL ATENDE', ativo: true, criado_em: agora() }, { id: 2, nome: 'OUTRA OPERAÇÃO', cliente: 'OUTRO CLIENTE', ativo: true, criado_em: agora() }];
+    (d.usuarios || []).forEach(u => { if (u.operacao_id === undefined) u.operacao_id = 1; });
   }
   pronto = carregar();
 
   /* ---------- dados iniciais da demonstração ---------- */
   function semente() {
     const d = { versao: 1, seq: { rel: 1, imp: 1, base: 1, carga: 1, erel: 1 },
-      usuarios: [], relatorios: [], csat_avaliacoes: [], csat_importacoes: [], estudio_bases: [], estudio_arquivos: [], estudio_cargas: [], estudio_relatorios: [] };
+      usuarios: [], relatorios: [], perfis_acesso: [], operacoes: [], csat_avaliacoes: [], csat_importacoes: [], estudio_bases: [], estudio_arquivos: [], estudio_cargas: [], estudio_relatorios: [] };
     const u = (id, email, nome, perfil, matricula, extra = {}) => d.usuarios.push({ id, email, senha: 'demo123', nome, perfil, matricula, ativo: true, troca_senha_obrigatoria: false, reset_solicitado_em: null, criado_em: agora(), ...extra });
     u('u-admin', 'admin@lsw.demo', 'ADMINISTRADOR DEMO', 'admin', 1001);
     u('u-usuario', 'usuario@lsw.demo', 'USUÁRIO DEMO', 'usuario', 1002);
     u('u-3', 'marina.costa@lsw.demo', 'MARINA COSTA', 'usuario', 1003, { reset_solicitado_em: agora() });
     u('u-4', 'otavio.lima@lsw.demo', 'OTÁVIO LIMA', 'usuario', 1004, { ativo: false });
+    u('u-sup', 'supervisor@lsw.demo', 'SUPERVISORA DEMO', 'usuario', 1005, { perfil_acesso_id: 3 });
+    semearAcessos(d);
     // Painel CSAT com avaliações fictícias
     const imp = { id: d.seq.imp++, importado_por: 'u-admin', importado_em: agora(), arquivo: 'base_intra_exemplo.xlsx', linhas_lidas: 0, ignoradas: 0, inseridas: 0, atualizadas: 0, sem_alteracao: 0, meta: 85 };
     d.csat_importacoes.push(imp);
@@ -178,18 +193,28 @@ const LSW_DEMO = (() => {
     if (u.troca_senha_obrigatoria && req.caminho !== '/api/trocar-senha') return r(403, { erro: 'Troque a senha provisória para continuar.', trocarSenha: true });
     req.usuario = u;
   };
-  const admin = req => (req.usuario.perfil !== 'admin' ? erro(403, 'Acesso negado. Esta ação é restrita a administradores.') : undefined);
+  // Permissões do perfil de acesso (sem perfil escolhido: admin = tudo, usuário = relatórios) — igual ao servidor real
+  const acessoDe = u => {
+    const pa = u.perfil_acesso_id ? (db.perfis_acesso || []).find(p => p.id === +u.perfil_acesso_id) : null;
+    return { permissoes: pa ? pa.permissoes : (u.perfil === 'admin' ? ['*'] : ['relatorios']), perfilNome: pa ? pa.nome : (u.perfil === 'admin' ? 'ADMINISTRADOR' : 'USUÁRIO'), operacao_id: u.operacao_id || null };
+  };
+  const tem = (u, c) => { const p = acessoDe(u).permissoes; return p.includes('*') || p.includes(c); };
+  const pode = (...chaves) => req => (chaves.some(c => tem(req.usuario, c)) ? undefined : erro(403, 'Acesso negado. O seu perfil não tem permissão para esta ação.'));
+  const admin = pode('*');
+  const daOperacao = (card, u) => !Array.isArray(card.operacoes) || !card.operacoes.length || card.operacoes.map(Number).includes(Number(u.operacao_id));
+  const listaOps = v => { if (!Array.isArray(v)) return null; const ids = [...new Set(v.map(Number).filter(n => n > 0))]; return ids.length ? ids : null; };
+  const perfilDoAcesso = id => { const pa = (db.perfis_acesso || []).find(p => p.id === +id); return pa ? (pa.permissoes.includes('*') ? 'admin' : 'usuario') : null; };
   const acessoCsat = req => {
-    if (req.usuario.perfil === 'admin') return;
+    if (tem(req.usuario, 'relatorios.publicar') || tem(req.usuario, 'csat.importar')) return;
     const card = db.relatorios.find(x => x.tipo === 'csat');
-    if (!card || !card.visivel || !card.ativo) return erro(403, 'O painel CSAT não está disponível para o seu perfil.');
+    if (!card || !card.visivel || !card.ativo || !daOperacao(card, req.usuario)) return erro(403, 'O painel CSAT não está disponível para o seu perfil.');
   };
   const acessoPublicado = req => {
-    if (req.usuario.perfil === 'admin') return;
+    if (tem(req.usuario, 'relatorios.publicar') || tem(req.usuario, 'estudio.relatorios')) return;
     const id = +req.params.id;
-    if (!db.relatorios.some(x => x.estudio_relatorio_id === id && x.visivel && x.ativo)) return erro(403, 'Este relatório não está disponível.');
+    if (!db.relatorios.some(x => x.estudio_relatorio_id === id && x.visivel && x.ativo && daOperacao(x, req.usuario))) return erro(403, 'Este relatório não está disponível.');
   };
-  const perfilPublico = p => ({ id: p.id, matricula: p.matricula, nome: p.nome, email: p.email, perfil: p.perfil, ativo: p.ativo, criado_em: p.criado_em, troca_senha_obrigatoria: p.troca_senha_obrigatoria, reset_solicitado_em: p.reset_solicitado_em });
+  const perfilPublico = p => ({ id: p.id, matricula: p.matricula, nome: p.nome, email: p.email, perfil: p.perfil, ativo: p.ativo, criado_em: p.criado_em, troca_senha_obrigatoria: p.troca_senha_obrigatoria, reset_solicitado_em: p.reset_solicitado_em, perfil_acesso_id: p.perfil_acesso_id || null, operacao_id: p.operacao_id || null });
 
   rota('GET', '/api/health', () => r(200, { status: 'ok', modo: 'demonstração' }));
   rota('POST', '/api/login', req => {
@@ -199,7 +224,9 @@ const LSW_DEMO = (() => {
     if (!u || u.senha !== password) return erro(401, 'Invalid login credentials');
     if (!u.ativo) return erro(403, 'Este usuário está desativado. Contate o administrador.');
     u.reset_solicitado_em = null; salvar();
-    return r(200, { mensagem: 'Login realizado com sucesso!', usuario: { id: u.id, email: u.email }, perfil: u.perfil, trocarSenha: u.troca_senha_obrigatoria, token: 'tok-' + u.id });
+    const ac = acessoDe(u), op = (db.operacoes || []).find(o => o.id === +u.operacao_id) || null;
+    return r(200, { mensagem: 'Login realizado com sucesso!', usuario: { id: u.id, email: u.email }, perfil: u.perfil, permissoes: ac.permissoes, perfilNome: ac.perfilNome, operacao: op && { id: op.id, nome: op.nome },
+      trocarSenha: u.troca_senha_obrigatoria, token: 'tok-' + u.id });
   });
   rota('POST', '/api/solicitar-reset', req => {
     const u = db.usuarios.find(x => x.email === String(req.body.email || '').trim().toLowerCase() && x.ativo);
@@ -211,41 +238,54 @@ const LSW_DEMO = (() => {
     req.usuario.senha = req.body.novaSenha; req.usuario.troca_senha_obrigatoria = false; salvar();
     return r(200, { mensagem: 'Senha alterada com sucesso!' });
   });
-  rota('GET', '/api/usuarios', auth, admin, () => r(200, [...db.usuarios].sort((a, b) => (a.criado_em < b.criado_em ? 1 : -1)).map(perfilPublico)));
-  rota('POST', '/api/usuarios', auth, admin, req => {
-    const { nome, email, senha, perfil, matricula } = req.body;
+  rota('GET', '/api/usuarios', auth, pode('usuarios.gerenciar', 'usuarios.senha'), () => r(200, [...db.usuarios].sort((a, b) => (a.criado_em < b.criado_em ? 1 : -1)).map(perfilPublico)));
+  rota('POST', '/api/usuarios', auth, pode('usuarios.gerenciar'), req => {
+    const { nome, email, senha, matricula, perfil_acesso_id, operacao_id } = req.body;
+    let { perfil } = req.body;
     if (!email || !senha) return erro(400, 'E-mail e senha são obrigatórios.');
-    if (!['usuario', 'admin'].includes(perfil)) return erro(400, 'Perfil inválido. Use "usuario" ou "admin".');
+    if (perfil_acesso_id) { perfil = perfilDoAcesso(perfil_acesso_id); if (!perfil) return erro(400, 'Perfil de acesso inválido.'); }
+    else if (!['usuario', 'admin'].includes(perfil)) return erro(400, 'Escolha o perfil de acesso.');
     if (!matricula) return erro(400, 'Matrícula é obrigatória.');
     if (db.usuarios.some(x => +x.matricula === +matricula)) return erro(409, `Já existe um usuário com a matrícula ${matricula}.`);
     if (db.usuarios.some(x => x.email === String(email).toLowerCase())) return erro(400, 'A user with this email address has already been registered');
-    const novo = { id: 'u-' + Date.now().toString(36), email: String(email).toLowerCase(), senha, nome, perfil, matricula: +matricula, ativo: true, troca_senha_obrigatoria: true, reset_solicitado_em: null, criado_em: agora() };
+    const novo = { id: 'u-' + Date.now().toString(36), email: String(email).toLowerCase(), senha, nome, perfil, matricula: +matricula, ativo: true, troca_senha_obrigatoria: true, reset_solicitado_em: null, criado_em: agora(),
+      perfil_acesso_id: perfil_acesso_id ? +perfil_acesso_id : null, operacao_id: operacao_id ? +operacao_id : null };
     db.usuarios.push(novo); salvar();
     return r(201, { mensagem: 'Usuário criado com sucesso!', usuario: { id: novo.id, email: novo.email, perfil } });
   });
-  rota('PATCH', '/api/usuarios/:id', auth, admin, req => {
+  rota('PATCH', '/api/usuarios/:id', auth, pode('usuarios.gerenciar'), req => {
     const u = db.usuarios.find(x => x.id === req.params.id); if (!u) return erro(404, 'Usuário não encontrado.');
-    const { nome, perfil, matricula, ativo } = req.body;
+    const { nome, matricula, ativo, perfil_acesso_id, operacao_id } = req.body;
+    let { perfil } = req.body;
+    if (req.body.email !== undefined) {
+      const email = String(req.body.email || '').trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return erro(400, 'E-mail inválido.');
+      if (db.usuarios.some(x => x.id !== u.id && x.email === email)) return erro(409, `Já existe um usuário com o e-mail ${email}.`);
+      u.email = email;
+    }
+    if (perfil_acesso_id) { perfil = perfilDoAcesso(perfil_acesso_id); if (!perfil) return erro(400, 'Perfil de acesso inválido.'); u.perfil_acesso_id = +perfil_acesso_id; }
+    if (operacao_id !== undefined) u.operacao_id = operacao_id ? +operacao_id : null;
     if (matricula !== undefined && db.usuarios.some(x => x.id !== u.id && +x.matricula === +matricula)) return erro(409, `Já existe um usuário com a matrícula ${matricula}.`);
     if (nome !== undefined) u.nome = nome; if (perfil !== undefined) u.perfil = perfil; if (matricula !== undefined) u.matricula = +matricula; if (ativo !== undefined) u.ativo = ativo;
     salvar(); return r(200, { mensagem: 'Usuário atualizado com sucesso!', usuario: perfilPublico(u) });
   });
-  rota('POST', '/api/usuarios/:id/resetar-senha', auth, admin, req => {
+  rota('POST', '/api/usuarios/:id/resetar-senha', auth, pode('usuarios.senha', 'usuarios.gerenciar'), req => {
     const u = db.usuarios.find(x => x.id === req.params.id); if (!u) return erro(404, 'Usuário não encontrado.');
     if (!req.body.senha) return erro(400, 'Informe a senha provisória.');
     u.senha = req.body.senha; u.troca_senha_obrigatoria = true; u.reset_solicitado_em = null; salvar();
     return r(200, { mensagem: 'Senha resetada. O usuário deverá trocá-la no próximo login.' });
   });
   // Relatórios (cards)
-  rota('GET', '/api/relatorios', auth, req => r(200, db.relatorios.filter(x => req.usuario.perfil === 'admin' || (x.visivel && x.ativo)).sort((a, b) => (a.atualizado_em < b.atualizado_em ? 1 : -1))));
-  rota('POST', '/api/relatorios', auth, admin, req => {
-    const { titulo, categoria, descricao, link, visivel } = req.body;
+  rota('GET', '/api/relatorios', auth, req => r(200, db.relatorios.filter(x => tem(req.usuario, 'relatorios.publicar') || (x.visivel && x.ativo && daOperacao(x, req.usuario))).sort((a, b) => (a.atualizado_em < b.atualizado_em ? 1 : -1))));
+  rota('POST', '/api/relatorios', auth, pode('relatorios.publicar'), req => {
+    const { titulo, categoria, descricao, link, visivel, operacoes } = req.body;
     if (!titulo || !categoria) return erro(400, 'Título e categoria são obrigatórios.');
-    const novo = { id: db.seq.rel++, titulo, categoria, descricao, link, tipo: 'link', visivel: visivel ?? true, ativo: true, descontinuado_em: null, estudio_relatorio_id: null, criado_por: req.usuario.id, criado_em: agora(), atualizado_em: agora() };
+    const novo = { id: db.seq.rel++, titulo, categoria, descricao, link, tipo: 'link', visivel: visivel ?? true, operacoes: listaOps(operacoes), ativo: true, descontinuado_em: null, estudio_relatorio_id: null, criado_por: req.usuario.id, criado_em: agora(), atualizado_em: agora() };
     db.relatorios.push(novo); salvar(); return r(201, { mensagem: 'Relatório criado com sucesso!', relatorio: novo });
   });
-  rota('PATCH', '/api/relatorios/:id', auth, admin, req => {
+  rota('PATCH', '/api/relatorios/:id', auth, pode('relatorios.publicar', 'quadro.estudio'), req => {
     const x = db.relatorios.find(y => y.id === +req.params.id); if (!x) return erro(404, 'Relatório não encontrado.');
+    if (req.body.operacoes !== undefined) x.operacoes = listaOps(req.body.operacoes);
     ['titulo', 'categoria', 'descricao', 'link', 'visivel'].forEach(k => { if (req.body[k] !== undefined) x[k] = req.body[k]; });
     if (req.body.ativo !== undefined) { x.ativo = req.body.ativo; x.descontinuado_em = req.body.ativo ? null : agora(); }
     x.atualizado_em = agora(); salvar(); return r(200, { mensagem: 'Relatório atualizado com sucesso!', relatorio: x });
@@ -253,18 +293,18 @@ const LSW_DEMO = (() => {
   // Painel CSAT
   rota('GET', '/api/csat/dados', auth, acessoCsat, req => r(200, csatDados(req.query.mes || null)));
   rota('POST', '/api/csat/detalhe', auth, acessoCsat, req => r(200, csatDetalhe(req.body)));
-  rota('GET', '/api/csat/historico', auth, admin, () => r(200, [...db.csat_importacoes].reverse().slice(0, 30).map(h => ({ ...h, importado_por_nome: (db.usuarios.find(u => u.id === h.importado_por) || {}).nome || '—' }))));
-  rota('POST', '/api/csat/importacoes', auth, admin, req => {
+  rota('GET', '/api/csat/historico', auth, pode('csat.importar'), () => r(200, [...db.csat_importacoes].reverse().slice(0, 30).map(h => ({ ...h, importado_por_nome: (db.usuarios.find(u => u.id === h.importado_por) || {}).nome || '—' }))));
+  rota('POST', '/api/csat/importacoes', auth, pode('csat.importar'), req => {
     const meta = Number(req.body.meta);
     if (!Number.isInteger(meta) || meta < 0 || meta > 100) return erro(400, 'Meta inválida: use um número inteiro de 0 a 100.');
     const imp = { id: db.seq.imp++, importado_por: req.usuario.id, importado_em: agora(), arquivo: req.body.arquivo || null, linhas_lidas: +req.body.linhas_lidas || 0, ignoradas: +req.body.ignoradas || 0, inseridas: 0, atualizadas: 0, sem_alteracao: 0, meta };
     db.csat_importacoes.push(imp); salvar(); return r(201, { importacao: imp });
   });
-  rota('POST', '/api/csat/importacoes/:id/lote', auth, admin, req => {
+  rota('POST', '/api/csat/importacoes/:id/lote', auth, pode('csat.importar'), req => {
     if (!Array.isArray(req.body.linhas) || !req.body.linhas.length) return erro(400, 'Nenhuma avaliação recebida.');
     const res = csatImportarLote(+req.params.id, req.body.linhas); salvar(); return r(200, res);
   });
-  rota('POST', '/api/csat/importacoes/:id/concluir', auth, admin, req => {
+  rota('POST', '/api/csat/importacoes/:id/concluir', auth, pode('csat.importar'), req => {
     const importacao = db.csat_importacoes.find(i => i.id === +req.params.id); if (!importacao) return erro(404, 'Salvamento não encontrado.');
     let card = db.relatorios.find(x => x.tipo === 'csat'), cardCriado = false;
     if (card) card.atualizado_em = agora();
@@ -276,10 +316,10 @@ const LSW_DEMO = (() => {
     return { ...b, resumo: { dias: arqs.length, linhas: arqs.reduce((s, a) => s + a.linhas, 0), bytes: arqs.reduce((s, a) => s + a.bytes, 0), de: dias[0] || null, ate: dias[dias.length - 1] || null, ultima_carga: carga ? carga.carregado_em : null } }; };
   const arquivosDa = id => db.estudio_arquivos.filter(a => a.base_id === id).sort((a, b) => (a.dia < b.dia ? -1 : 1)).map(a => ({ dia: a.dia, linhas: a.linhas, bytes: a.bytes, atualizado_em: a.atualizado_em }));
   const caminho = (id, dia) => `${ARQ}estudio/bases/${id}/${dia}.parquet`;
-  rota('GET', '/api/estudio/bases', auth, admin, () => r(200, [...db.estudio_bases].sort((a, b) => a.nome.localeCompare(b.nome)).map(resumoBase)));
-  rota('GET', '/api/estudio/bases/:id', auth, admin, req => { const b = db.estudio_bases.find(x => x.id === +req.params.id); if (!b) return erro(404, 'Base não encontrada.');
+  rota('GET', '/api/estudio/bases', auth, pode('estudio.bases', 'estudio.relatorios', 'quadro.estudio'), () => r(200, [...db.estudio_bases].sort((a, b) => a.nome.localeCompare(b.nome)).map(resumoBase)));
+  rota('GET', '/api/estudio/bases/:id', auth, pode('estudio.bases', 'estudio.relatorios', 'quadro.estudio'), req => { const b = db.estudio_bases.find(x => x.id === +req.params.id); if (!b) return erro(404, 'Base não encontrada.');
     return r(200, { base: b, arquivos: arquivosDa(b.id), cargas: db.estudio_cargas.filter(c => c.base_id === b.id).reverse().slice(0, 30) }); });
-  rota('POST', '/api/estudio/bases', auth, admin, req => {
+  rota('POST', '/api/estudio/bases', auth, pode('estudio.bases', 'estudio.relatorios', 'quadro.estudio'), req => {
     const { nome, descricao, colunas, coluna_data, chave } = req.body;
     if (!nome || !Array.isArray(colunas) || !colunas.length) return erro(400, 'Informe o nome e as colunas da base.');
     const n = String(nome).trim().toUpperCase();
@@ -287,9 +327,9 @@ const LSW_DEMO = (() => {
     const base = { id: db.seq.base++, nome: n, descricao: descricao ? String(descricao).trim().toUpperCase() : null, colunas, coluna_data, chave: chave && chave.length ? chave : null, medidas: [], fonte: 'arquivo', criado_por: req.usuario.id, criado_em: agora(), atualizado_em: agora() };
     db.estudio_bases.push(base); salvar(); return r(201, { base });
   });
-  rota('POST', '/api/estudio/bases/:id/links-download', auth, admin, req => { const links = {}; (req.body.dias || []).forEach(d => { if (db.estudio_arquivos.some(a => a.base_id === +req.params.id && a.dia === d)) links[d] = caminho(+req.params.id, d); }); return r(200, { links }); });
-  rota('POST', '/api/estudio/bases/:id/links-upload', auth, admin, req => { const links = {}; (req.body.dias || []).forEach(d => { links[d] = caminho(+req.params.id, d); }); return r(200, { links }); });
-  rota('POST', '/api/estudio/bases/:id/cargas', auth, admin, req => {
+  rota('POST', '/api/estudio/bases/:id/links-download', auth, pode('estudio.bases', 'estudio.relatorios', 'quadro.estudio'), req => { const links = {}; (req.body.dias || []).forEach(d => { if (db.estudio_arquivos.some(a => a.base_id === +req.params.id && a.dia === d)) links[d] = caminho(+req.params.id, d); }); return r(200, { links }); });
+  rota('POST', '/api/estudio/bases/:id/links-upload', auth, pode('estudio.bases', 'estudio.relatorios', 'quadro.estudio'), req => { const links = {}; (req.body.dias || []).forEach(d => { links[d] = caminho(+req.params.id, d); }); return r(200, { links }); });
+  rota('POST', '/api/estudio/bases/:id/cargas', auth, pode('estudio.bases', 'estudio.relatorios', 'quadro.estudio'), req => {
     const id = +req.params.id, { dias } = req.body;
     if (!Array.isArray(dias) || !dias.length) return erro(400, 'Resumo da carga inválido.');
     dias.forEach(d => { const ex = db.estudio_arquivos.find(a => a.base_id === id && a.dia === d.dia); const v = { base_id: id, dia: d.dia, linhas: d.linhas, bytes: d.bytes, atualizado_em: agora() }; if (ex) Object.assign(ex, v); else db.estudio_arquivos.push(v); });
@@ -297,7 +337,7 @@ const LSW_DEMO = (() => {
     const b = db.estudio_bases.find(x => x.id === id); if (b) b.atualizado_em = agora();
     salvar(); return r(201, { mensagem: 'Carga registrada.' });
   });
-  rota('PUT', '/api/estudio/bases/:id/medidas', auth, admin, req => {
+  rota('PUT', '/api/estudio/bases/:id/medidas', auth, pode('estudio.bases', 'estudio.relatorios', 'quadro.estudio'), req => {
     const b = db.estudio_bases.find(x => x.id === +req.params.id); if (!b) return erro(404, 'Base não encontrada.');
     const nomes = new Set();
     for (const m of req.body.medidas || []) {
@@ -310,10 +350,10 @@ const LSW_DEMO = (() => {
     b.atualizado_em = agora(); salvar(); return r(200, { base: b });
   });
   // Estúdio · relatórios
-  rota('GET', '/api/estudio/relatorios', auth, admin, () => r(200, [...db.estudio_relatorios].sort((a, b) => (a.atualizado_em < b.atualizado_em ? 1 : -1)).map(x => ({
+  rota('GET', '/api/estudio/relatorios', auth, pode('estudio.bases', 'estudio.relatorios', 'quadro.estudio'), () => r(200, [...db.estudio_relatorios].sort((a, b) => (a.atualizado_em < b.atualizado_em ? 1 : -1)).map(x => ({
     id: x.id, nome: x.nome, base_id: x.base_id, base_nome: (db.estudio_bases.find(b => b.id === x.base_id) || {}).nome || '—', guias: x.definicao.guias.length,
     visuais: x.definicao.guias.reduce((s, g) => s + g.visuais.length, 0), atualizado_em: x.atualizado_em, publicado_em: x.publicado_em || null, arquivado: !!x.arquivado, arquivado_em: x.arquivado_em || null }))));
-  rota('POST', '/api/estudio/relatorios', auth, admin, req => {
+  rota('POST', '/api/estudio/relatorios', auth, pode('estudio.bases', 'estudio.relatorios', 'quadro.estudio'), req => {
     const nome = String(req.body.nome || '').trim().toUpperCase(), baseId = +req.body.base_id;
     if (!nome) return erro(400, 'Informe o nome do relatório.');
     if (!db.estudio_bases.some(b => b.id === baseId)) return erro(400, 'Escolha uma base válida.');
@@ -321,30 +361,31 @@ const LSW_DEMO = (() => {
     const rel = { id: db.seq.erel++, nome, base_id: baseId, definicao: DEF_VAZIA(), definicao_publicada: null, publicado_em: null, arquivado: false, arquivado_em: null, criado_por: req.usuario.id, criado_em: agora(), atualizado_em: agora() };
     db.estudio_relatorios.push(rel); salvar(); return r(201, { relatorio: rel });
   });
-  rota('GET', '/api/estudio/relatorios/:id', auth, admin, req => { const rel = db.estudio_relatorios.find(x => x.id === +req.params.id); if (!rel) return erro(404, 'Relatório não encontrado.');
+  rota('GET', '/api/estudio/relatorios/:id', auth, pode('estudio.bases', 'estudio.relatorios', 'quadro.estudio'), req => { const rel = db.estudio_relatorios.find(x => x.id === +req.params.id); if (!rel) return erro(404, 'Relatório não encontrado.');
     return r(200, { relatorio: rel, base: db.estudio_bases.find(b => b.id === rel.base_id), arquivos: arquivosDa(rel.base_id) }); });
-  rota('PUT', '/api/estudio/relatorios/:id', auth, admin, req => {
+  rota('PUT', '/api/estudio/relatorios/:id', auth, pode('estudio.bases', 'estudio.relatorios', 'quadro.estudio'), req => {
     const rel = db.estudio_relatorios.find(x => x.id === +req.params.id); if (!rel) return erro(404, 'Relatório não encontrado.');
     const def = req.body.definicao;
     if (!def || !Array.isArray(def.guias) || !def.guias.length) return erro(400, 'O relatório precisa ter pelo menos uma guia.');
     if (req.body.nome !== undefined) { const n = String(req.body.nome).trim().toUpperCase(); if (!n) return erro(400, 'Informe o nome do relatório.'); if (db.estudio_relatorios.some(x => x.id !== rel.id && x.nome === n)) return erro(409, `Já existe um relatório chamado ${n}.`); rel.nome = n; }
     rel.definicao = def; rel.atualizado_em = agora(); salvar(); return r(200, { relatorio: rel });
   });
-  rota('PATCH', '/api/estudio/relatorios/:id/arquivar', auth, admin, req => {
+  rota('PATCH', '/api/estudio/relatorios/:id/arquivar', auth, pode('estudio.bases', 'estudio.relatorios', 'quadro.estudio'), req => {
     const rel = db.estudio_relatorios.find(x => x.id === +req.params.id); if (!rel) return erro(404, 'Relatório não encontrado.');
     const arq = req.body.arquivado === true; rel.arquivado = arq; rel.arquivado_em = arq ? agora() : null;
     const card = db.relatorios.find(x => x.estudio_relatorio_id === rel.id);
     if (card) { card.ativo = !arq; card.descontinuado_em = arq ? agora() : null; card.atualizado_em = agora(); }
     salvar(); return r(200, { relatorio: { id: rel.id, nome: rel.nome, arquivado: rel.arquivado, arquivado_em: rel.arquivado_em }, cardAtualizado: !!card });
   });
-  rota('POST', '/api/estudio/relatorios/:id/publicar', auth, admin, req => {
+  rota('POST', '/api/estudio/relatorios/:id/publicar', auth, pode('estudio.publicar', 'quadro.estudio'), req => {
     const rel = db.estudio_relatorios.find(x => x.id === +req.params.id); if (!rel) return erro(404, 'Relatório não encontrado.');
     if (!String(req.body.categoria || '').trim()) return erro(400, 'Escolha a categoria do card.');
     rel.definicao_publicada = JSON.parse(JSON.stringify(rel.definicao)); rel.publicado_em = agora();
     let card = db.relatorios.find(x => x.estudio_relatorio_id === rel.id), cardCriado = false;
     const descricao = req.body.descricao ? String(req.body.descricao).trim().toUpperCase() : null;
-    if (card) Object.assign(card, { titulo: rel.nome, categoria: req.body.categoria, descricao, atualizado_em: agora() });
-    else { card = { id: db.seq.rel++, titulo: rel.nome, categoria: req.body.categoria, descricao, link: null, tipo: 'estudio', estudio_relatorio_id: rel.id, visivel: true, ativo: true, descontinuado_em: null, criado_por: req.usuario.id, criado_em: agora(), atualizado_em: agora() }; db.relatorios.push(card); cardCriado = true; }
+    const ops = req.body.operacoes !== undefined ? { operacoes: listaOps(req.body.operacoes) } : {};
+    if (card) Object.assign(card, { titulo: rel.nome, categoria: req.body.categoria, descricao, ...ops, atualizado_em: agora() });
+    else { card = { id: db.seq.rel++, titulo: rel.nome, categoria: req.body.categoria, descricao, link: null, tipo: 'estudio', estudio_relatorio_id: rel.id, visivel: true, ...ops, ativo: true, descontinuado_em: null, criado_por: req.usuario.id, criado_em: agora(), atualizado_em: agora() }; db.relatorios.push(card); cardCriado = true; }
     salvar(); return r(200, { relatorio: rel, card, cardCriado });
   });
   rota('GET', '/api/estudio/publicados/:id', auth, acessoPublicado, req => {
@@ -360,7 +401,103 @@ const LSW_DEMO = (() => {
     if (alvo !== rel.base_id && !rels.some(x => +x.base_id === alvo)) return erro(403, 'Esta base não faz parte do relatório.');
     const links = {}; (req.body.dias || []).forEach(d => { links[d] = caminho(alvo, d); }); return r(200, { links });
   });
-  rota('POST', '/api/estudio/csat/editor', auth, admin, req => { const res = csatEditor(req.usuario.id); salvar(); return r(200, res); });
+  rota('POST', '/api/estudio/csat/editor', auth, pode('estudio.bases', 'estudio.relatorios', 'quadro.estudio'), req => { const res = csatEditor(req.usuario.id); salvar(); return r(200, res); });
+
+  // Administração · perfis de acesso e operações
+  const permOk = l => Array.isArray(l) ? [...new Set(l.map(String))].filter(p => /^[a-z_]+(\.[a-z_]+)?$/.test(p)) : null;
+  rota('GET', '/api/perfis', auth, pode('admin.perfis', 'usuarios.gerenciar'), () => r(200, [...db.perfis_acesso].sort((a, b) => a.nome.localeCompare(b.nome)).map(p => ({ ...p, usuarios: db.usuarios.filter(u => +u.perfil_acesso_id === p.id).length }))));
+  rota('POST', '/api/perfis', auth, pode('admin.perfis'), req => {
+    const nome = String(req.body.nome || '').trim().toUpperCase(), permissoes = permOk(req.body.permissoes || []);
+    if (!nome) return erro(400, 'Informe o nome do perfil.');
+    if (db.perfis_acesso.some(p => p.nome === nome)) return erro(409, `Já existe um perfil chamado ${nome}.`);
+    const p = { id: db.seq.perfil++, nome, permissoes, sistema: false, criado_em: agora() }; db.perfis_acesso.push(p); salvar(); return r(201, { perfil: p });
+  });
+  rota('PATCH', '/api/perfis/:id', auth, pode('admin.perfis'), req => {
+    const p = db.perfis_acesso.find(x => x.id === +req.params.id); if (!p) return erro(404, 'Perfil não encontrado.');
+    if (p.permissoes.includes('*')) return erro(400, 'O perfil ADMINISTRADOR tem acesso a tudo e não pode ser alterado.');
+    if (req.body.nome !== undefined) { const n = String(req.body.nome).trim().toUpperCase(); if (!n) return erro(400, 'Informe o nome do perfil.'); if (db.perfis_acesso.some(x => x.id !== p.id && x.nome === n)) return erro(409, `Já existe um perfil chamado ${n}.`); p.nome = n; }
+    if (req.body.permissoes !== undefined) p.permissoes = permOk(req.body.permissoes);
+    p.atualizado_em = agora(); salvar(); return r(200, { perfil: p });
+  });
+  rota('DELETE', '/api/perfis/:id', auth, pode('admin.perfis'), req => {
+    const p = db.perfis_acesso.find(x => x.id === +req.params.id); if (!p) return erro(404, 'Perfil não encontrado.');
+    if (p.sistema) return erro(400, 'Este perfil é do sistema e não pode ser excluído.');
+    const n = db.usuarios.filter(u => +u.perfil_acesso_id === p.id).length; if (n) return erro(400, `Há ${n} usuário(s) com este perfil. Troque o perfil deles antes de excluir.`);
+    db.perfis_acesso = db.perfis_acesso.filter(x => x.id !== p.id); salvar(); return r(200, { mensagem: 'Perfil excluído.' });
+  });
+  rota('GET', '/api/operacoes', auth, pode('usuarios.gerenciar', 'admin.operacoes', 'relatorios.publicar', 'estudio.publicar'), () => r(200, [...db.operacoes].sort((a, b) => a.nome.localeCompare(b.nome)).map(o => ({ ...o, usuarios: db.usuarios.filter(u => +u.operacao_id === o.id).length }))));
+  const camposOperacao = (b, novo) => {
+    const o = {};
+    if (novo || b.nome !== undefined) { o.nome = String(b.nome || '').trim().toUpperCase(); if (!o.nome) return { erro: 'Informe o nome da operação.' }; }
+    if (b.cliente !== undefined) o.cliente = String(b.cliente || '').trim().toUpperCase() || null;
+    if (b.ativo !== undefined) o.ativo = !!b.ativo;
+    return { campos: o };
+  };
+  rota('POST', '/api/operacoes', auth, pode('usuarios.gerenciar', 'admin.operacoes'), req => {
+    const { campos, erro: e } = camposOperacao(req.body, true); if (e) return erro(400, e);
+    if (db.operacoes.some(o => o.nome === campos.nome)) return erro(409, `Já existe a operação ${campos.nome}.`);
+    const o = { id: db.seq.oper++, ativo: true, cliente: null, ...campos, criado_em: agora() }; db.operacoes.push(o); salvar(); return r(201, { operacao: o });
+  });
+  rota('PATCH', '/api/operacoes/:id', auth, pode('admin.operacoes'), req => {
+    const o = db.operacoes.find(x => x.id === +req.params.id); if (!o) return erro(404, 'Operação não encontrada.');
+    const { campos, erro: e } = camposOperacao(req.body, false); if (e) return erro(400, e);
+    if (campos.nome && db.operacoes.some(x => x.id !== o.id && x.nome === campos.nome)) return erro(409, `Já existe a operação ${campos.nome}.`);
+    Object.assign(o, campos, { atualizado_em: agora() }); salvar(); return r(200, { operacao: o });
+  });
+
+  // Quadro no banco: gavetas guardadas no "banco" da demonstração (mesmas regras de permissão do servidor real)
+  const QD_CAMPO = { config: 'chave', anexos: 'chave', dpo: 'matricula', funcionarios: 'matricula', wfm: 're', vinculos: 're', fotos: 'data', cargas: 'id', historico: 'id', tickets: 'id' };
+  const qdBanco = () => { if (!db.quadro) { db.quadro = {}; db.quadroCont = {}; } return db.quadro; };
+  const temAlgum = (u, ...c) => c.some(x => tem(u, x));
+  const podeLerQuadro = u => { const p = acessoDe(u).permissoes; return p.includes('*') || p.some(x => x === 'quadro' || x.startsWith('quadro.')) || p.includes('admin.tickets'); };
+  const refaz = u => temAlgum(u, 'quadro.cargas', 'quadro.vinculos', 'quadro.analisar');
+  const recusa = (u, loja, itens) => {
+    const nega = 'O seu perfil não tem permissão para gravar ' + loja + ' do Quadro.';
+    if (['dpo', 'wfm', 'cargas'].includes(loja)) return tem(u, 'quadro.cargas') ? null : nega;
+    if (loja === 'vinculos') return tem(u, 'quadro.vinculos') ? null : nega;
+    if (['funcionarios', 'historico', 'fotos'].includes(loja)) return refaz(u) ? null : nega;
+    if (loja === 'config') return itens.every(i => temAlgum(u, ...({ modelos: ['admin.tickets'], clientes: ['quadro.cargas'], pendentes: ['quadro.cargas', 'quadro.vinculos', 'quadro.analisar'], estudio: ['quadro.estudio'], migrado: ['quadro.cargas'] }[i && i.chave] || ['*']))) ? null : nega;
+    if (loja === 'tickets') return refaz(u) || (tem(u, 'quadro.solicitar') && itens.every(i => i && !i.id && i.status === 'aberto')) ? null : nega;
+    if (loja === 'anexos') return refaz(u) || tem(u, 'quadro.solicitar') ? null : nega;
+    return 'Gaveta desconhecida: ' + loja;
+  };
+  rota('GET', '/api/quadro/dados/:loja', auth, req => {
+    const loja = req.params.loja, q = req.query;
+    if (!QD_CAMPO[loja]) return erro(400, 'Gaveta desconhecida.');
+    if (!podeLerQuadro(req.usuario)) return erro(403, 'Acesso negado. O seu perfil não tem permissão para o Quadro.');
+    const b = qdBanco();
+    return r(200, Object.keys(b).filter(k => k.startsWith(loja + '|')).sort().map(k => b[k])
+      .filter(x => (!q.chave || String(x[QD_CAMPO[loja]]) === q.chave) && (!q.matricula || String(x.matricula) === q.matricula) && (!q.prefixo || String(x[QD_CAMPO[loja]]).startsWith(q.prefixo)))
+      .map(x => JSON.parse(JSON.stringify(x))));
+  });
+  rota('POST', '/api/quadro/gravar', auth, req => {
+    const mapa = req.body.mapa || {}, trocar = req.body.trocar || [];
+    const lojas = [...new Set([...Object.keys(mapa), ...trocar])];
+    if (!lojas.length) return erro(400, 'Nada para gravar.');
+    for (const l of lojas) { const m = recusa(req.usuario, l, mapa[l] || []); if (m) return erro(m.startsWith('Gaveta') ? 400 : 403, m); }
+    const b = qdBanco(), saida = {};
+    trocar.forEach(l => Object.keys(b).forEach(k => { if (k.startsWith(l + '|')) delete b[k]; }));
+    for (const [loja, itens] of Object.entries(mapa)) {
+      const campo = QD_CAMPO[loja]; saida[loja] = [];
+      for (let item of itens) {
+        item = JSON.parse(JSON.stringify(item));
+        if (campo === 'id') {
+          if (item.id == null || item.id === '') { db.quadroCont[loja] = (db.quadroCont[loja] || 0) + 1; item.id = db.quadroCont[loja]; }
+          else db.quadroCont[loja] = Math.max(db.quadroCont[loja] || 0, +item.id);
+        }
+        const chave = String(item[campo] ?? ''); if (!chave) return erro(400, `Item sem ${campo} na gaveta ${loja}`);
+        b[loja + '|' + chave] = item; saida[loja].push(chave);
+      }
+    }
+    salvar(); return r(200, { chaves: saida });
+  });
+  rota('POST', '/api/quadro/remover', auth, req => {
+    const { loja, chaves, tudo } = req.body, b = qdBanco();
+    if (tudo) { if (!tem(req.usuario, '*')) return erro(403, 'Só o perfil com acesso total pode apagar o Quadro inteiro.'); db.quadro = {}; db.quadroCont = {}; salvar(); return r(200, { removidos: 0 }); }
+    if (!QD_CAMPO[loja] || !Array.isArray(chaves) || !chaves.length) return erro(400, 'Informe a gaveta e as chaves.');
+    if (!(loja === 'vinculos' ? tem(req.usuario, 'quadro.vinculos') : tem(req.usuario, '*'))) return erro(403, 'Acesso negado. O seu perfil não tem permissão para esta ação.');
+    let n = 0; chaves.forEach(c => { if (b[loja + '|' + c]) { delete b[loja + '|' + c]; n++; } }); salvar(); return r(200, { removidos: n });
+  });
 
   /* ---------- atendimento das chamadas (no lugar da rede) ---------- */
   async function atender(url, opcoes = {}) {
@@ -369,7 +506,11 @@ const LSW_DEMO = (() => {
     const [caminhoQ, consulta] = url.slice(BASE.length - 1).split('?');
     const partes = caminhoQ.split('/').filter(Boolean);
     const headers = {}; new Headers(opcoes.headers || {}).forEach((v, k) => { headers[k.toLowerCase()] = v; });
-    let body = {}; try { body = opcoes.body ? JSON.parse(opcoes.body) : {}; } catch (e) {}
+    let body = {};
+    try {
+      if (opcoes.body instanceof Blob) body = JSON.parse(await new Response(opcoes.body.stream().pipeThrough(new DecompressionStream('gzip'))).text());
+      else body = opcoes.body ? JSON.parse(opcoes.body) : {};
+    } catch (e) {}
     const req = { metodo, caminho: '/' + partes.join('/'), headers, body, query: Object.fromEntries(new URLSearchParams(consulta || '')), params: {} };
     for (const rt of rotas) {
       if (rt.metodo !== metodo || rt.partes.length !== partes.length) continue;

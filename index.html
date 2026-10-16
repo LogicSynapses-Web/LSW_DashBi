@@ -10,6 +10,8 @@
   <link rel="stylesheet" href="style.css">
   <!-- Estilos do Estúdio (fase 3) -->
   <link rel="stylesheet" href="estudio.css">
+  <!-- Estilos do Quadro (quadro de funcionários, solicitações, painel) -->
+  <link rel="stylesheet" href="quadro.css">
   <!-- LSW: paletas, página pública, tutorial e passo a passo guiado (vem por último para valer sobre os outros) -->
   <link rel="stylesheet" href="lsw.css">
 </head>
@@ -135,17 +137,56 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <span class="label">Relatórios</span>
       </button>
-      <button class="nav-item" data-view="users" id="nav-users" onclick="switchView('users')">
+      <!-- Itens com data-perm só aparecem para quem tem a permissão (perfis de acesso; ver aplicarPermissoesNoMenu).
+           "quadro.*" = qualquer permissão do Quadro. Grupos (Quadro, Administração) abrem e fecham as subseções. -->
+      <!-- Quadro (fase 4): quadro de funcionários DPO × WFM, com as subseções -->
+      <div class="nav-grupo" id="nav-quadro" data-perm="quadro.*" style="display:none">
+        <button class="nav-item nav-grupo-btn" onclick="navGrupo('nav-quadro')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2.2"/><path d="M5.5 16.5c.6-1.8 2-2.7 3.5-2.7s2.9.9 3.5 2.7" stroke-linecap="round"/><path d="M15 9h3M15 13h3" stroke-linecap="round"/></svg>
+          <span class="label">Quadro</span>
+          <!-- Contador de vínculos DPO × WFM esperando confirmação -->
+          <span class="nav-badge" id="nav-quadro-badge" style="display:none" title="Vínculos para confirmar">0</span>
+          <svg class="nav-seta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 6 15 12 9 18"/></svg>
+        </button>
+        <div class="nav-sub">
+          <button class="nav-item nav-subitem" data-view="quadro" data-sub="quadro" data-perm="quadro.atual" onclick="switchView('quadro', 'quadro')"><span class="label">Quadro atual</span></button>
+          <button class="nav-item nav-subitem" data-view="quadro" data-sub="painel" data-perm="quadro.painel" onclick="switchView('quadro', 'painel')"><span class="label">Painel</span></button>
+          <button class="nav-item nav-subitem" data-view="quadro" data-sub="solicitacoes" data-perm="quadro.solicitacoes,quadro.analisar" onclick="switchView('quadro', 'solicitacoes')"><span class="label">Solicitações</span><span class="nav-badge nav-badge-suave" id="nav-solic-badge" style="display:none" title="Abertas e em andamento">0</span></button>
+          <button class="nav-item nav-subitem" data-view="quadro" data-sub="cargas" data-perm="quadro.cargas" onclick="switchView('quadro', 'cargas')"><span class="label">Cargas</span></button>
+          <button class="nav-item nav-subitem" data-view="quadro" data-sub="vinculos" data-perm="quadro.vinculos" onclick="switchView('quadro', 'vinculos')"><span class="label">Vínculos</span></button>
+        </div>
+      </div>
+      <!-- Estúdio (fase 3): bases de dados e editor de relatórios — subseções no menu (antes eram abas) -->
+      <div class="nav-grupo" id="nav-estudio" data-perm="estudio.bases,estudio.relatorios" style="display:none">
+        <button class="nav-item nav-grupo-btn" onclick="navGrupo('nav-estudio')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>
+          <span class="label">Estúdio</span>
+          <svg class="nav-seta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 6 15 12 9 18"/></svg>
+        </button>
+        <div class="nav-sub">
+          <button class="nav-item nav-subitem" data-view="estudio" data-sub="bases" data-perm="estudio.bases,estudio.relatorios" onclick="switchView('estudio', 'bases')"><span class="label">Bases de dados</span></button>
+          <button class="nav-item nav-subitem" data-view="estudio" data-sub="relatorios" data-perm="estudio.relatorios" onclick="switchView('estudio', 'relatorios')"><span class="label">Relatórios</span></button>
+        </div>
+      </div>
+      <button class="nav-item" data-view="users" id="nav-users" data-perm="usuarios.gerenciar,usuarios.senha" onclick="switchView('users')" style="display:none">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke-linecap="round"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke-linecap="round"/></svg>
         <span class="label">Usuários</span>
         <!-- Contador de pedidos de reset de senha pendentes (só aparece quando > 0) -->
         <span class="nav-badge" id="nav-reset-badge" style="display:none" title="Pedidos de reset de senha">0</span>
       </button>
-      <!-- Estúdio (fase 3): bases de dados para criar relatórios — só admin (controlado em entrarNoSistema) -->
-      <button class="nav-item" data-view="estudio" id="nav-estudio" onclick="switchView('estudio')" style="display:none">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>
-        <span class="label">Estúdio</span>
-      </button>
+      <!-- Administração: perfis de acesso e modelos de solicitação (tickets) -->
+      <div class="nav-grupo" id="nav-admin" data-perm="admin.*" style="display:none">
+        <button class="nav-item nav-grupo-btn" onclick="navGrupo('nav-admin')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span class="label">Administração</span>
+          <svg class="nav-seta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 6 15 12 9 18"/></svg>
+        </button>
+        <div class="nav-sub">
+          <button class="nav-item nav-subitem" data-view="perfis" data-perm="admin.perfis" onclick="switchView('perfis')"><span class="label">Perfis</span></button>
+          <button class="nav-item nav-subitem" data-view="operacoes" data-perm="admin.operacoes" onclick="switchView('operacoes')"><span class="label">Operações</span></button>
+          <button class="nav-item nav-subitem" data-view="quadro" data-sub="modelos" data-perm="admin.tickets" onclick="switchView('quadro', 'modelos')"><span class="label">Tickets</span></button>
+        </div>
+      </div>
       <!-- LSW: Apresentação da ferramenta e Tutorial do Estúdio (para todos) -->
       <button class="nav-item" data-view="apresentacao" onclick="switchView('apresentacao')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4" stroke-linecap="round"/><path d="M10 8.5v5l4-2.5z" stroke-linejoin="round"/></svg>
@@ -212,31 +253,27 @@
 
       <!-- ┌─ Seção RELATÓRIOS: botões, busca e cards (preenchidos por renderReports) ─┐ -->
       <section id="view-reports">
-        <div class="page-head">
-          <div>
-            <p id="reports-sub">Todos os relatórios publicados.</p>
+        <!-- Uma linha só: busca à esquerda, botões à direita (o texto explicativo saiu para dar espaço aos cards) -->
+        <div class="grid-toolbar">
+          <p id="reports-sub" class="hidden">Todos os relatórios publicados.</p>
+          <div class="search-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input class="caixa-alta" type="text" placeholder="Buscar relatório..." oninput="renderReports(this.value)">
           </div>
-          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
             <!-- Só aparece para o admin (controlado em renderReports) -->
-            <button class="btn btn-ghost" id="btn-discontinued" style="width:auto; display:none;" onclick="openDiscontinuedModal()">
+            <button class="btn btn-ghost btn-small" id="btn-discontinued" style="width:auto; display:none;" onclick="openDiscontinuedModal()">
               Descontinuados (<span id="discontinued-count">0</span>)
             </button>
             <!-- Painel CSAT (2.0): só aparece para o admin enquanto o card ainda não existe.
                  O primeiro "Salvar" dentro do painel cria o card; depois ele é aberto pelo card. -->
-            <button class="btn btn-ghost" id="btn-csat-novo" style="width:auto; display:none;" onclick="abrirPainelCsat()">
+            <button class="btn btn-ghost btn-small" id="btn-csat-novo" style="width:auto; display:none;" onclick="abrirPainelCsat()">
               Criar painel CSAT
             </button>
-            <button class="btn btn-primary" id="btn-new-report" style="width:auto;" onclick="openReportModal()">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <button class="btn btn-primary btn-small" id="btn-new-report" style="width:auto;" onclick="openReportModal()">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               Publicar relatório
             </button>
-          </div>
-        </div>
-
-        <div class="grid-toolbar">
-          <div class="search-box">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input class="caixa-alta" type="text" placeholder="Buscar relatório..." oninput="renderReports(this.value)">
           </div>
         </div>
 
@@ -246,18 +283,8 @@
 
       <!-- ┌─ Seção USUÁRIOS (só admin): tabela preenchida por renderUsers ─┐ -->
       <section id="view-users" class="hidden">
-        <div class="page-head">
-          <div>
-            <p>Gerencie os acessos ao portal.</p>
-          </div>
-          <button class="btn btn-primary" style="width:auto;" onclick="openUserModal()">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Novo usuário
-          </button>
-        </div>
-
-        <div class="panel">
-          <div class="panel-body" style="padding-top:16px;">
+        <!-- Tabela na altura da tela: cabeçalho fixo, só as linhas rolam; "Novo usuário" fica no canto do cabeçalho -->
+        <div class="panel tela-tabela">
             <div class="table-wrap">
               <table>
                 <thead>
@@ -265,15 +292,20 @@
                     <th>Usuário</th>
                     <th>Matrícula</th>
                     <th>Perfil</th>
+                    <th>Operação</th>
                     <th>Status</th>
                     <th class="col-criado">Criado em</th>
-                    <th></th>
+                    <th class="th-acao">
+                      <button class="btn btn-primary btn-small" onclick="openUserModal()">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        Novo usuário
+                      </button>
+                    </th>
                   </tr>
                 </thead>
                 <tbody id="users-tbody"></tbody>
               </table>
             </div>
-          </div>
         </div>
       </section>
       <!-- └─ fim Seção USUÁRIOS ─┘ -->
@@ -283,6 +315,24 @@
         <div id="estudio-conteudo"></div>
       </section>
       <!-- └─ fim Seção ESTÚDIO ─┘ -->
+
+      <!-- ┌─ Seção QUADRO: quadro atual, painel, solicitações, cargas, vínculos e tickets. Tudo desenhado pelo quadro.js ─┐ -->
+      <section id="view-quadro" class="hidden">
+        <div id="quadro-conteudo"></div>
+      </section>
+      <!-- └─ fim Seção QUADRO ─┘ -->
+
+      <!-- ┌─ Seção PERFIS (Administração): perfis de acesso e permissões. Tudo desenhado pelo admin-perfis.js ─┐ -->
+      <section id="view-perfis" class="hidden">
+        <div id="perfis-conteudo"></div>
+      </section>
+      <!-- └─ fim Seção PERFIS ─┘ -->
+
+      <!-- ┌─ Seção OPERAÇÕES (Administração): tabela operação · cliente · situação. Desenhada pelo admin-perfis.js ─┐ -->
+      <section id="view-operacoes" class="hidden">
+        <div id="operacoes-conteudo"></div>
+      </section>
+      <!-- └─ fim Seção OPERAÇÕES ─┘ -->
 
       <!-- ┌─ Seção CONFIGURAÇÕES: preferências pessoais, guardadas NESTE navegador.
               Só mudam a aparência; não alteram dados nem funções do sistema. ─┐ -->
@@ -664,6 +714,12 @@
           <span class="slider"></span>
         </label>
       </div>
+      <!-- Para quais operações o card aparece (nenhuma marcada = todas). Preenchido por preencherOperacoesRelatorio -->
+      <div class="field">
+        <label>Visível para as operações</label>
+        <div class="ops-escolha" id="rp-operacoes"></div>
+        <div class="field-hint">Nenhuma marcada = todas as operações.</div>
+      </div>
     </div>
     <div class="modal-foot">
       <!-- Só aparece ao editar o Painel CSAT ou um relatório do Estúdio: abre o desenho no editor -->
@@ -702,13 +758,21 @@
         <input id="us-pass" type="text" placeholder="Mín. 8: maiúscula, minúscula, número e símbolo">
         <div class="field-hint">Vale para um único acesso: o usuário deverá trocá-la no primeiro login.</div>
       </div>
-      <div class="field">
-        <label>Perfil de acesso</label>
-        <select id="us-role">
-          <option value="usuario">Usuário — leitura de relatórios</option>
-          <option value="admin">Administrador — acesso total</option>
-        </select>
+      <!-- Perfil de acesso (Administração › Perfis) e operação do usuário (preenchidos por preencherSelectsUsuario) -->
+      <div class="field-row">
+        <div class="field">
+          <label>Perfil de acesso</label>
+          <select id="us-role"></select>
+        </div>
+        <div class="field">
+          <label>Operação</label>
+          <div class="campo-com-botao">
+            <select id="us-operacao"></select>
+            <button class="btn btn-ghost btn-small" type="button" title="Cadastrar uma operação nova" onclick="novaOperacao()">+ Nova</button>
+          </div>
+        </div>
       </div>
+
       <div class="toggle-row">
         <div>
           <div class="t-label">Usuário ativo</div>
@@ -832,6 +896,14 @@
 <!-- Medidas e desenho dos visuais do editor (fase 3 · E2b) -->
 <script src="estudio-visuais.js"></script>
 <script src="estudio-dax.js"></script>
+<!-- Quadro de funcionários (dados fictícios gerados no navegador) e Administração › Perfis -->
+<script src="quadro-base.js"></script>
+<script src="quadro.js"></script>
+<script src="quadro-solicitacoes.js"></script>
+<script src="quadro-modelos.js"></script>
+<script src="quadro-painel.js"></script>
+<script src="quadro-estudio.js"></script>
+<script src="admin-perfis.js"></script>
 <!-- LSW: Apresentação, Tutorial (leitura + passo a passo guiado) e entrada da demonstração -->
 <script src="lsw-app.js"></script>
 </body>

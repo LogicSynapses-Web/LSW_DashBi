@@ -140,7 +140,9 @@ function lswHtmlApresentacao(publico){
         <div class="lsw-recurso"><div class="ic">${lswSvg(LSW_ICO.grade)}</div><h3>Editor por arrastar</h3><p>Grade fina, desfazer/refazer, prévia, zoom, modelo sugerido e modelo em Z (do macro ao micro).</p></div>
         <div class="lsw-recurso"><div class="ic">${lswSvg(LSW_ICO.filtro)}</div><h3>Filtros e guias</h3><p>Segmentações sincronizadas entre guias, eixos alternativos (Intraday / Intrahora) e exportação para Excel.</p></div>
         <div class="lsw-recurso"><div class="ic">${lswSvg(LSW_ICO.link)}</div><h3>Relações entre bases</h3><p>Como o PROCV: cada linha busca na outra base as colunas que faltam, sem duplicar linhas.</p></div>
-        <div class="lsw-recurso"><div class="ic">${lswSvg(LSW_ICO.escudo)}</div><h3>Perfis de acesso</h3><p>Administrador cria e publica; usuário só lê. Ocultar, descontinuar e arquivar sem apagar nada.</p></div>
+        <div class="lsw-recurso"><div class="ic">${lswSvg(LSW_ICO.escudo)}</div><h3>Perfis e operações</h3><p>Uma árvore de permissões diz o que cada perfil vê e faz (na tela e no servidor). Cada pessoa pertence a uma operação, e cada relatório pode ser liberado para uma, várias ou todas.</p></div>
+        <div class="lsw-recurso"><div class="ic">${lswSvg(LSW_ICO.base)}</div><h3>Quadro de funcionários</h3><p>Junta duas bases de RH (DPO e WFM), liga as pessoas por nome e admissão, guarda a foto de cada dia e a trajetória de cada um, e projeta o mês: férias, afastamentos, desligamentos e turnover.</p></div>
+        <div class="lsw-recurso"><div class="ic">${lswSvg(LSW_ICO.filtro)}</div><h3>Solicitações com árvore de decisão</h3><p>Formulários montados sem código (resposta X leva à pergunta Y). O pedido aprovado entra sozinho no quadro, e uma carga que vier diferente fica marcada em vermelho.</p></div>
       </div>
     </section>
 
@@ -241,7 +243,7 @@ function lswHtmlTutorial(publico){
 
       <section class="lsw-cap" id="cap-base"><small>Passo 1</small><h2>Subir a planilha (criar a base)</h2>
         <ol class="lsw-passos">
-          <li>No menu à esquerda, clique em <b>Estúdio</b>. Você cai na aba <b>Bases de dados</b>.</li>
+          <li>No menu à esquerda, abra <b>Estúdio</b> e clique em <b>Bases de dados</b>.</li>
           <li>Clique em <b>Nova base</b>.</li>
           <li>Dê um <b>nome</b> que qualquer pessoa entenda, como <kbd>ATENDIMENTOS</kbd>. A descrição é opcional.</li>
           <li>Clique em <b>Selecionar planilha</b> (ou arraste o arquivo). Na demonstração, use <b>Usar planilha de exemplo</b>.</li>
@@ -275,7 +277,7 @@ function lswHtmlTutorial(publico){
 
       <section class="lsw-cap" id="cap-relatorio"><small>Passo 4</small><h2>Criar o relatório</h2>
         <ol class="lsw-passos">
-          <li>No Estúdio, abra a aba <b>Relatórios</b> e clique em <b>Novo relatório</b>.</li>
+          <li>No menu, em <b>Estúdio › Relatórios</b>, clique em <b>Novo relatório</b> (no canto da tabela).</li>
           <li>Dê um nome (ex.: <kbd>ATENDIMENTO DIÁRIO</kbd>) e escolha a <b>base</b> que acabou de criar.</li>
           <li>Em <b>Começar com</b>, escolha <b>Modelo sugerido</b>: ele já desenha três cards no topo, dois gráficos à esquerda e uma tabela à direita, vazios, esperando os campos.</li>
           <li>Clique em <b>Criar e abrir o editor</b>.</li>
@@ -581,9 +583,10 @@ const LSW_ROTEIROS = {
     return [
       { titulo: 'Seu primeiro relatório', texto: 'Vamos fazer o caminho completo: <b>subir uma planilha → criar as contas → montar o painel → publicar</b>.<br><br>Em cada passo, eu acendo o lugar certo e digo o que fazer. Se preferir, clique em <b>Fazer por mim</b>.',
         mostrar: () => true, antes: () => { if (!lswAdmin()) { lswFecharTour(); showToast('Este passo a passo é para o perfil Administrador. Saia e entre como Administrador.', 'erro', 5000); } } },
-      { titulo: 'Abra o Estúdio', alvo: '#nav-estudio', texto: 'O Estúdio é onde ficam as bases de dados e os relatórios em construção.', faca: 'clique em <b>Estúdio</b> no menu.',
-        acao: () => switchView('estudio'), pronto: () => !lswEl('view-estudio').classList.contains('hidden') && est.bases },
-      { titulo: 'Nova base', alvo: lswPrimeiro('#estudio-conteudo .page-head .btn-primary'), texto: 'Primeiro, os ingredientes: a planilha com os dados.', faca: 'clique em <b>Nova base</b>.',
+      { titulo: 'Abra o Estúdio', alvo: '#nav-estudio .nav-subitem[data-sub="bases"]', texto: 'O Estúdio é onde ficam as bases de dados e os relatórios em construção. No menu ele se abre em duas partes: <b>Bases de dados</b> e <b>Relatórios</b>.', faca: 'clique em <b>Estúdio › Bases de dados</b> no menu.',
+        antes: () => { const g = lswEl('nav-estudio'); if (g) g.classList.add('aberto'); },
+        acao: () => switchView('estudio', 'bases'), pronto: () => !lswEl('view-estudio').classList.contains('hidden') && est.bases && est.aba === 'bases' },
+      { titulo: 'Nova base', alvo: lswPrimeiro('#estudio-conteudo .th-acao .btn-primary, #estudio-conteudo .empty-acoes .btn-primary'), texto: 'Primeiro, os ingredientes: a planilha com os dados.', faca: 'clique em <b>Nova base</b>.',
         antes: () => { if (!est.assist && est.aba !== 'bases') estTrocarAba('bases'); }, acao: () => estNovaBase(), pronto: () => est.assist && est.assist.modo === 'nova' },
       { titulo: 'Dê um nome', alvo: '#est-nome', texto: 'Um nome que qualquer colega entenda. A descrição é opcional.', faca: 'escreva <b>ATENDIMENTOS EXEMPLO</b> no nome.',
         acao: () => { const n = lswNomeLivre('ATENDIMENTOS EXEMPLO', est.bases.map(b => b.nome)); est.assist.nome = n; lswEl('est-nome').value = n; },
@@ -598,9 +601,10 @@ const LSW_ROTEIROS = {
         acao: () => estGravar(), pronto: () => est.assist && est.assist.concluido && !est.assist.gravando },
       { titulo: 'Base pronta!', alvo: lswPrimeiro('.est-rodape .btn-primary'), texto: 'Os dados estão guardados, um arquivo por dia. Agora vamos ao relatório.', faca: 'clique em <b>Voltar para as bases</b>.',
         acao: () => estCancelar(), pronto: () => !est.assist },
-      { titulo: 'Aba Relatórios', alvo: lswPrimeiro('.est-abas .est-aba:nth-child(2)'), texto: 'Aqui ficam os relatórios do Estúdio.', faca: 'clique na aba <b>Relatórios</b>.',
+      { titulo: 'Relatórios do Estúdio', alvo: '#nav-estudio .nav-subitem[data-sub="relatorios"]', texto: 'Aqui ficam os relatórios do Estúdio.', faca: 'clique em <b>Relatórios</b>, dentro de Estúdio, no menu.',
+        antes: () => { const g = lswEl('nav-estudio'); if (g) g.classList.add('aberto'); },
         acao: () => estTrocarAba('relatorios'), pronto: () => est.aba === 'relatorios' && !est.assist },
-      { titulo: 'Novo relatório', alvo: lswPrimeiro('#estudio-conteudo .page-head .btn-primary'), texto: 'Vamos criar o relatório em cima da base que acabamos de gravar.', faca: 'clique em <b>Novo relatório</b>.',
+      { titulo: 'Novo relatório', alvo: lswPrimeiro('#estudio-conteudo .th-acao .btn-primary, #estudio-conteudo .empty-acoes .btn-primary'), texto: 'Vamos criar o relatório em cima da base que acabamos de gravar.', faca: 'clique em <b>Novo relatório</b>.',
         acao: () => estNovoRelatorio(), pronto: () => est.novoRel },
       { titulo: 'Nome, base e modelo', alvo: lswPrimeiro('.est-novo-rel'), limite: 90000,
         texto: '<b>Começar com → Modelo sugerido</b> já desenha 3 cards, 2 gráficos e uma tabela, vazios, esperando os campos.',

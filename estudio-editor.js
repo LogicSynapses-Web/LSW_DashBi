@@ -11,27 +11,29 @@
 const LIB_GRADE_JS = 'https://cdn.jsdelivr.net/npm/gridstack@10.3.1/dist/gridstack-all.js';
 const LIB_GRADE_CSS = 'https://cdn.jsdelivr.net/npm/gridstack@10.3.1/dist/gridstack.min.css';
 
-// Grade: 24 colunas; a altura da linha acompanha a largura (proporção fixa), então o relatório
+// Grade: 96 colunas (largura da tela ÷ 96); a altura da linha acompanha a largura (proporção fixa), então o relatório
 // mantém o mesmo desenho em qualquer largura de tela (editor, prévia e tela do usuário).
-const ED_COLUNAS = 24;
+// No zoom 100% (página de 1200 px): coluna = 12,5 px e linha = 9 px.
+const ED_COLUNAS = 96;
 const ED_PROPORCAO = 0.72;        // altura da linha = 72% da largura da coluna
 const ED_LARGURA_PAGINA = 1200;   // largura de referência da página (zoom 100%)
-const ED_VERSAO_GRADE = 24;       // desenhos antigos (12 colunas) são convertidos ao abrir
+const ED_VERSAO_GRADE = 96;       // desenhos antigos (12 ou 24 colunas) são convertidos ao abrir
+const ED_F = ED_COLUNAS / 24;     // os modelos (sugerido, em Z, Painel CSAT) são escritos na grade de 24: multiplica por 4
 
-// Tipos de visual: rótulo, grupo do menu, tamanho inicial (colunas x linhas da grade de 24) e ícone
+// Tipos de visual: rótulo, grupo do menu, tamanho inicial (colunas x linhas da grade de 96) e ícone
 const ED_TIPOS = {
-  card:    { rotulo: 'Card',             grupo: 'Card',    w: 6,  h: 4,  icone: '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 13h4M7 10h10"/>' },
-  colunas: { rotulo: 'Colunas',          grupo: 'Gráfico', w: 12, h: 8,  icone: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>' },
-  barras:  { rotulo: 'Barras',           grupo: 'Gráfico', w: 12, h: 8,  icone: '<path d="M4 4h10M4 10h16M4 16h7M2 2v20"/>' },
-  linhas:  { rotulo: 'Linhas',           grupo: 'Gráfico', w: 12, h: 8,  icone: '<path d="M3 17l5-6 4 3 6-8 3 3"/><path d="M2 21h20"/>' },
-  area:    { rotulo: 'Área',             grupo: 'Gráfico', w: 12, h: 8,  icone: '<path d="M3 18l5-7 4 3 6-8 3 3v9H3z"/>' },
-  pizza:   { rotulo: 'Pizza',            grupo: 'Gráfico', w: 8,  h: 8,  icone: '<circle cx="12" cy="12" r="9"/><path d="M12 3v9l6.4 6.4"/>' },
-  tabela:  { rotulo: 'Tabela dinâmica',  grupo: 'Tabela',  w: 10, h: 12, icone: '<rect x="3" y="4" width="18" height="16" rx="1"/><path d="M3 9h18M3 14h18M9 4v16"/>' },
-  velocimetro:  { rotulo: 'Velocímetro', grupo: 'Análise', w: 8,  h: 7,  icone: '<path d="M4 16a8 8 0 1 1 16 0"/><path d="M12 16l4-5"/>' },
-  cascata:      { rotulo: 'Cascata',     grupo: 'Análise', w: 12, h: 8,  icone: '<path d="M3 20V12h4v8M9 12V6h4v6M15 6V3h4v17M2 21h20"/>' },
-  tendencia:    { rotulo: 'Tendência e projeção', grupo: 'Análise', w: 12, h: 8, icone: '<path d="M3 17l6-6 4 3 7-8"/><path d="M16 6h4v4" stroke-dasharray="2 2"/>' },
-  reincidencia: { rotulo: 'Reincidência', grupo: 'Análise', w: 8,  h: 6,  icone: '<path d="M4 12a8 8 0 1 0 3-6.2"/><path d="M4 4v5h5"/>' },
-  filtro:  { rotulo: 'Filtro',           grupo: 'Filtro',  w: 6,  h: 3,  icone: '<path d="M3 4h18l-7 9v6l-4 2v-8z"/>' },
+  card:    { rotulo: 'Card',             grupo: 'Card',    w: 24,  h: 16,  icone: '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 13h4M7 10h10"/>' },
+  colunas: { rotulo: 'Colunas',          grupo: 'Gráfico', w: 48, h: 32,  icone: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>' },
+  barras:  { rotulo: 'Barras',           grupo: 'Gráfico', w: 48, h: 32,  icone: '<path d="M4 4h10M4 10h16M4 16h7M2 2v20"/>' },
+  linhas:  { rotulo: 'Linhas',           grupo: 'Gráfico', w: 48, h: 32,  icone: '<path d="M3 17l5-6 4 3 6-8 3 3"/><path d="M2 21h20"/>' },
+  area:    { rotulo: 'Área',             grupo: 'Gráfico', w: 48, h: 32,  icone: '<path d="M3 18l5-7 4 3 6-8 3 3v9H3z"/>' },
+  pizza:   { rotulo: 'Pizza',            grupo: 'Gráfico', w: 32,  h: 32,  icone: '<circle cx="12" cy="12" r="9"/><path d="M12 3v9l6.4 6.4"/>' },
+  tabela:  { rotulo: 'Tabela dinâmica',  grupo: 'Tabela',  w: 40, h: 48, icone: '<rect x="3" y="4" width="18" height="16" rx="1"/><path d="M3 9h18M3 14h18M9 4v16"/>' },
+  velocimetro:  { rotulo: 'Velocímetro', grupo: 'Análise', w: 32,  h: 28,  icone: '<path d="M4 16a8 8 0 1 1 16 0"/><path d="M12 16l4-5"/>' },
+  cascata:      { rotulo: 'Cascata',     grupo: 'Análise', w: 48, h: 32,  icone: '<path d="M3 20V12h4v8M9 12V6h4v6M15 6V3h4v17M2 21h20"/>' },
+  tendencia:    { rotulo: 'Tendência e projeção', grupo: 'Análise', w: 48, h: 32, icone: '<path d="M3 17l6-6 4 3 7-8"/><path d="M16 6h4v4" stroke-dasharray="2 2"/>' },
+  reincidencia: { rotulo: 'Reincidência', grupo: 'Análise', w: 32,  h: 24,  icone: '<path d="M4 12a8 8 0 1 0 3-6.2"/><path d="M4 4v5h5"/>' },
+  filtro:  { rotulo: 'Filtro',           grupo: 'Filtro',  w: 24,  h: 12,  icone: '<path d="M3 4h18l-7 9v6l-4 2v-8z"/>' },
 };
 const ED_ICONE_TIPO_COLUNA = { texto: 'Aa', inteiro: '123', decimal: '1,5', data: '📅', data_hora: '📅', hora: '🕒' };
 
@@ -72,7 +74,7 @@ function edCarregarCss(url){
 // Modelo sugerido para relatório novo (inspirado num painel de referência): cards no topo,
 // gráficos à esquerda e tabela dinâmica à direita. É só um ponto de partida: tudo pode ser mudado.
 function edModeloSugerido(){
-  const v = (tipo, titulo, x, y, w, h) => ({ id: edNovoId('v'), tipo, titulo, x, y, w, h });
+  const v = (tipo, titulo, x, y, w, h) => ({ id: edNovoId('v'), tipo, titulo, x: x * ED_F, y: y * ED_F, w: w * ED_F, h: h * ED_F }); // posições escritas na grade de 24
   return { grade: ED_VERSAO_GRADE, guias: [{ id: 'g1', nome: 'VISÃO GERAL', visuais: [
     v('card', 'INDICADOR 1', 0, 0, 6, 4), v('card', 'INDICADOR 2', 6, 0, 6, 4), v('card', 'INDICADOR 3', 12, 0, 6, 4),
     v('linhas', 'EVOLUÇÃO POR DIA', 0, 4, 14, 8), v('colunas', 'COMPARATIVO POR DIA', 0, 12, 14, 8),
@@ -83,7 +85,7 @@ function edModeloSugerido(){
 // 1-3 resultado (topo à esquerda) → 4 meta (topo à direita) → 5 tendência (diagonal) → 6 o que pesou → 7 detalhe (micro).
 // Os títulos numerados guiam quem monta; basta arrastar as medidas e colunas para cada visual.
 function edVisuaisZ(){
-  const v = (tipo, titulo, x, y, w, h) => ({ id: edNovoId('v'), tipo, titulo, x, y, w, h });
+  const v = (tipo, titulo, x, y, w, h) => ({ id: edNovoId('v'), tipo, titulo, x: x * ED_F, y: y * ED_F, w: w * ED_F, h: h * ED_F }); // posições escritas na grade de 24
   return [
     v('filtro', 'PERÍODO', 0, 0, 8, 3), v('filtro', 'SEGMENTO', 8, 0, 7, 3),
     v('card', '1 · RESULTADO PRINCIPAL', 0, 3, 5, 4), v('card', '2 · VOLUME', 5, 3, 5, 4), v('card', '3 · QUALIDADE', 10, 3, 5, 4),
@@ -100,10 +102,12 @@ function edNovaGuiaZ(){
   ed.guia = id; ed.sel = null;
   edRenderGuias(); edCarregarGuia(); edRenderProps();
 }
-// Desenho salvo na grade antiga (12 colunas, linhas de 56px): dobra posições e tamanhos → mesmo desenho, grade mais fina
+// Desenho salvo numa grade mais grossa (12 ou 24 colunas): multiplica posições e tamanhos (×8 ou ×4)
+// → o mesmo desenho, numa grade mais fina. Como a altura da linha também acompanha a largura, nada muda de tamanho.
 function edMigrarGrade(def){
   if (def.grade === ED_VERSAO_GRADE) return false;
-  def.guias.forEach(g => g.visuais.forEach(v => { v.x *= 2; v.y *= 2; v.w *= 2; v.h *= 2; }));
+  const fator = ED_VERSAO_GRADE / (def.grade || 12);
+  def.guias.forEach(g => g.visuais.forEach(v => { v.x *= fator; v.y *= fator; v.w *= fator; v.h *= fator; }));
   def.grade = ED_VERSAO_GRADE;
   return true;
 }
@@ -240,7 +244,7 @@ function edMontarTela(){
   edCssColunas();
   edAplicarLarguraZoom();
   ed.cellH = edAlturaLinha();
-  ed.grade = GridStack.init({ column: ED_COLUNAS, cellHeight: ed.cellH, margin: 4, float: true, animate: false, minRow: 28,
+  ed.grade = GridStack.init({ column: ED_COLUNAS, cellHeight: ed.cellH, margin: 4, float: true, animate: false, minRow: 28 * ED_F,
     handle: '.ed-vis-cab', resizable: { handles: 'se, e, s' } }, edEl('ed-grade'));
   // A largura mudou (janela, zoom, prévia): recalcula a altura das linhas para manter a proporção
   ed.obsGrade = new ResizeObserver(() => edAjustarProporcao());
@@ -271,15 +275,17 @@ function edMontarTela(){
 /* ---------------- proporção, zoom e prévia ---------------- */
 function edAlturaLinha(){
   const w = edEl('ed-grade').clientWidth || ED_LARGURA_PAGINA;
-  return Math.max(10, Math.round(w / ED_COLUNAS * ED_PROPORCAO));
+  // sem arredondar para inteiro: com 96 colunas a linha tem poucos px (9 px no zoom 100%) e o arredondamento distorceria a proporção
+  return Math.max(2, Math.round(w / ED_COLUNAS * ED_PROPORCAO * 100) / 100);
 }
 function edAjustarProporcao(){
   const el = edEl('ed-grade');
   if (!el || !ed.grade) return;
   const h = edAlturaLinha();
   if (h !== ed.cellH) { ed.cellH = h; ed.grade.cellHeight(h); }
-  // pontinhos do fundo = exatamente uma célula da grade (cada passo ao arrastar anda um ponto)
-  el.style.backgroundSize = `${el.clientWidth / ED_COLUNAS}px ${h}px`;
+  // pontinhos do fundo = um a cada 4 células (com 96 colunas, um ponto por célula ficaria denso demais);
+  // ao arrastar, o visual anda de célula em célula: 4 passos entre um ponto e outro
+  el.style.backgroundSize = `${el.clientWidth / ED_COLUNAS * ED_F}px ${h * ED_F}px`;
 }
 function edAplicarLarguraZoom(){
   const el = edEl('ed-grade');
@@ -359,8 +365,8 @@ function edRenderDados(){
     ['Datas e horas', cols.filter(c => ['data', 'data_hora', 'hora'].includes(c.tipo))],
     ['Números', cols.filter(c => ['inteiro', 'decimal'].includes(c.tipo))],
     ['Textos', cols.filter(c => c.tipo === 'texto')],
-    // E5: colunas que vieram de bases relacionadas, um grupo por base
-    ...[...new Set(todas.filter(c => c._rel).map(c => c._relBase))].map(b => ['🔗 ' + b, todas.filter(c => c._relBase === b)]),
+    // E5: colunas que vieram de bases relacionadas, um grupo por base (📅 = tabela de apoio: Calendário, Faixas)
+    ...[...new Set(todas.filter(c => c._rel).map(c => c._relBase))].map(b => [(todas.find(c => c._relBase === b)._apoio ? '📅 ' : '🔗 ') + b, todas.filter(c => c._relBase === b)]),
   ];
   const statusAnterior = edEl('ed-status-dados') ? edEl('ed-status-dados').textContent : 'Carregando dados…';
   const medidas = ed.base.medidas || [];
@@ -472,7 +478,7 @@ function edAplicarMoldura(id){
 }
 function edAdicionarNaGrade(v){
   // mínimo 2×2 da grade fina; filtro pode ter 1 linha de altura (faixa de filtros compacta)
-  const el = ed.grade.addWidget({ id: v.id, x: v.x, y: v.y, w: v.w, h: v.h, minW: 2, minH: v.tipo === 'filtro' ? 1 : 2 });
+  const el = ed.grade.addWidget({ id: v.id, x: v.x, y: v.y, w: v.w, h: v.h, minW: 2 * ED_F, minH: (v.tipo === 'filtro' ? 1 : 2) * ED_F });
   el.querySelector('.grid-stack-item-content').innerHTML = edConteudoVisual(v);
   edAplicarMoldura(v.id);
   el.addEventListener('mousedown', ev => { if (!ev.target.closest('.ui-resizable-handle')) edSelecionar(v.id); });
@@ -727,12 +733,22 @@ function edAbrirPublicar(){
         ${ed.sujo ? '<br><b>Há alterações não salvas: elas serão salvas antes de publicar.</b>' : ''}</div>
       <div class="field"><label>Categoria</label><select id="ed-pub-cat">${ED_CATEGORIAS.map(c => `<option ${card ? (card.category === c ? 'selected' : '') : (c === 'Operações' ? 'selected' : '')}>${c}</option>`).join('')}</select></div>
       <div class="field"><label>Descrição (opcional)</label><input id="ed-pub-desc" class="caixa-alta" type="text" value="${card && card.desc !== 'Sem descrição.' ? estEsc(card.desc) : ''}" placeholder="EX.: CSAT POR OPERAÇÃO E SUPERVISOR"></div>
+      <!-- Operações que veem o card (nenhuma marcada = todas) — mesma lista da janela de relatório (script.js) -->
+      <div class="field"><label>Visível para as operações</label><div class="ops-escolha" id="ed-pub-ops"><span class="field-hint">carregando…</span></div>
+        <div class="field-hint">Nenhuma marcada = todas as operações.</div></div>
     </div>
     <div class="modal-foot">
       <button class="btn btn-ghost" style="width:auto" onclick="edEl('ed-pub').remove()">Cancelar</button>
       <button class="btn btn-primary" style="width:auto" id="ed-pub-ok" onclick="edPublicar()">Publicar</button>
     </div></div>`;
   edEl('ed-overlay').appendChild(jan);
+  const marcadas = card && Array.isArray(card.operacoes) ? card.operacoes : [];
+  (typeof carregarOperacoes === 'function' ? carregarOperacoes() : Promise.resolve([])).then(ops => {
+    const alvo = edEl('ed-pub-ops'); if (!alvo) return;
+    if (typeof operacoesParaEscolha === 'function') ops = operacoesParaEscolha(ops, marcadas); // inativas só se já marcadas
+    alvo.innerHTML = ops.length ? ops.map(o => `<label class="ops-item"><input type="checkbox" value="${o.id}" ${marcadas.includes(Number(o.id)) ? 'checked' : ''}> ${estEsc(o.nome)}</label>`).join('')
+      : '<span class="field-hint">Nenhuma operação cadastrada.</span>';
+  });
 }
 async function edPublicar(){
   const botao = edEl('ed-pub-ok'); botao.disabled = true; botao.textContent = 'Publicando…';
@@ -740,6 +756,7 @@ async function edPublicar(){
     if (ed.sujo) { await edSalvar(); if (ed.sujo) throw new Error('não foi possível salvar as alterações antes de publicar'); }
     const r = await estApi('POST', `/api/estudio/relatorios/${ed.rel.id}/publicar`, {
       categoria: edEl('ed-pub-cat').value, descricao: edEl('ed-pub-desc').value.trim().toUpperCase() || null,
+      operacoes: [...document.querySelectorAll('#ed-pub-ops input:checked')].map(i => Number(i.value)), // nenhuma = todas
     });
     ed.rel.publicado_em = r.relatorio.publicado_em;
     edEl('ed-pub').remove();

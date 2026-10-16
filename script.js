@@ -81,21 +81,75 @@ function doLogout(){
 
 
 /* ---------------- nav / theme -------------- */
-function switchView(view){
-  ['dashboard','reports','users','estudio','settings','apresentacao','tutorial'].forEach(v=>{
+// sub = subseção (Quadro: quadro · painel · solicitacoes · cargas · vinculos · modelos [Administração › Tickets])
+const QD_SUBSECOES = { quadro: 'Quadro atual', painel: 'Painel', solicitacoes: 'Solicitações', cargas: 'Cargas', vinculos: 'Vínculos' };
+// Permissão de cada subseção do Quadro (mesmas chaves do data-perm do menu e da árvore de Perfis)
+const QD_PERM_SUB = { quadro: 'quadro.atual', painel: 'quadro.painel', solicitacoes: 'quadro.solicitacoes,quadro.analisar', cargas: 'quadro.cargas', vinculos: 'quadro.vinculos', modelos: 'admin.tickets' };
+// semRecarregar: atalho dentro do próprio Quadro — só troca a subseção, sem reler os dados do armazenamento
+function switchView(view, sub, semRecarregar){
+  ['dashboard','reports','users','estudio','quadro','perfis','operacoes','settings','apresentacao','tutorial'].forEach(v=>{
     document.getElementById('view-'+v).classList.toggle('hidden', v!==view);
   });
-  document.querySelectorAll('.nav-item').forEach(b=>{
-    b.classList.toggle('active', b.dataset.view===view);
+  // Quadro: abre a subseção pedida se o perfil puder; senão, a primeira que ele pode ver
+  if (view === 'quadro') {
+    qd.aba = sub || qd.aba || 'quadro';
+    if (!podeAlgum(QD_PERM_SUB[qd.aba] || 'quadro.atual')) qd.aba = Object.keys(QD_PERM_SUB).find(k => k !== 'modelos' && podeAlgum(QD_PERM_SUB[k])) || 'quadro';
+  }
+  // Estúdio: Bases de dados | Relatórios (subseções do menu). Clicar no menu sai do assistente de carga (se não estiver gravando)
+  if (view === 'estudio') {
+    if (sub && !semRecarregar && est.assist && !est.assist.gravando) est.assist = null;
+    if (sub) { est.aba = sub; est.novoRel = false; }
+    if (est.aba === 'relatorios' && !pode('estudio.relatorios')) est.aba = 'bases';
+  }
+  // Item ativo no menu: a seção e, nas subseções, a subseção (o grupo dela abre sozinho)
+  const subAtual = view === 'quadro' ? qd.aba : view === 'estudio' ? est.aba : null;
+  document.querySelectorAll('.nav-item[data-view]').forEach(b=>{
+    b.classList.toggle('active', b.dataset.view===view && (!b.dataset.sub || b.dataset.sub === subAtual));
   });
-  const titles = { dashboard:'Dashboard', reports:'Relatórios', users:'Usuários', estudio:'Estúdio · Bases de dados', settings:'Configurações', apresentacao:'Apresentação', tutorial:'Tutorial do Estúdio' };
+  document.querySelectorAll('.nav-grupo').forEach(g => { if (g.querySelector('.nav-item.active')) g.classList.add('aberto'); });
+  // Cada tela começa do topo (a rolagem agora é da seção, não da página)
+  { const sec = document.getElementById('view-' + view); if (sec) sec.scrollTop = 0; }
+  // estudio.js e quadro.js carregam depois do script.js: só lê o estado deles quando a tela é deles
+  const titles = { dashboard:'Dashboard', reports:'Relatórios', users:'Usuários', estudio: view === 'estudio' ? 'Estúdio · ' + (est.aba === 'relatorios' ? 'Relatórios' : 'Bases de dados') : '', perfis:'Administração · Perfis', operacoes:'Administração · Operações', settings:'Configurações', apresentacao:'Apresentação', tutorial:'Tutorial do Estúdio',
+    quadro: view !== 'quadro' ? '' : qd.aba === 'modelos' ? 'Administração · Tickets' : 'Quadro · ' + (QD_SUBSECOES[qd.aba] || 'Quadro atual') };
   if (typeof lswAoTrocarTela === 'function') lswAoTrocarTela(view);
   // Estúdio (estudio.js): busca a lista de bases ao abrir
-  if (view === 'estudio' && session && session.role === 'admin') estAbrir();
+  if (view === 'estudio' && (pode('estudio.bases') || pode('estudio.relatorios'))) { if (semRecarregar) estRender(); else estAbrir(); }
+  // Quadro (quadro.js): lê o quadro guardado neste navegador
+  if (view === 'quadro' && session) { if (semRecarregar) qdRender(); else qdAbrir(); }
+  // Administração › Perfis (admin-perfis.js)
+  if (view === 'perfis' && pode('admin.perfis')) apAbrir();
+  // Administração › Operações (admin-perfis.js)
+  if (view === 'operacoes' && pode('admin.operacoes')) aoAbrir();
   if (view === 'settings') marcarPrefsNaTela();
   document.getElementById('session-title').textContent = titles[view];
   // Ao abrir Usuários, busca a lista de novo: assim pedidos de reset recentes aparecem
-  if (view === 'users' && session && session.role === 'admin') carregarUsuarios();
+  if (view === 'users' && (pode('usuarios.gerenciar') || pode('usuarios.senha'))) carregarUsuarios();
+}
+// Grupo do menu (Quadro, Administração): abre/fecha as subseções. Com o menu recolhido, primeiro expande o menu.
+function navGrupo(id){
+  const g = document.getElementById(id);
+  if (sidebarCollapsed) { toggleSidebar(); g.classList.add('aberto'); return; }
+  g.classList.toggle('aberto');
+}
+
+/* ---------------- permissões do perfil de acesso (15/10/2026) ---------------- */
+// session.perms vem do login (perfil de acesso). "*" = tudo. "quadro.*" = qualquer permissão do Quadro.
+function pode(chave){
+  if (!session || !session.perms) return false;
+  if (session.perms.includes('*') || session.perms.includes(chave)) return true;
+  if (chave.endsWith('.*')) { const g = chave.slice(0, -2); return session.perms.some(p => p === g || p.startsWith(g + '.')); }
+  return false;
+}
+const podeAlgum = lista => String(lista).split(',').some(c => pode(c.trim()));
+// Mostra no menu só o que o perfil pode usar (data-perm nos itens; grupo some se nenhuma subseção sobrar)
+function aplicarPermissoesNoMenu(){
+  document.querySelectorAll('.sidebar [data-perm]').forEach(el => {
+    el.style.display = podeAlgum(el.dataset.perm) ? (el.classList.contains('nav-grupo') ? 'block' : 'flex') : 'none';
+  });
+  document.querySelectorAll('.sidebar .nav-grupo').forEach(g => {
+    if (g.style.display !== 'none' && ![...g.querySelectorAll('.nav-subitem')].some(i => i.style.display !== 'none')) g.style.display = 'none';
+  });
 }
 function toggleSidebar(){
   sidebarCollapsed = !sidebarCollapsed;
@@ -204,17 +258,17 @@ function renderDashboard(){
 /* ---------------- reports ---------------- */
 function renderReports(filter){
   filter = (filter||'').toLowerCase();
-  const isAdmin = session.role === 'admin';
+  const isAdmin = pode('relatorios.publicar'); // quem gerencia relatórios (perfil de acesso)
   // Descontinuados nunca aparecem na tela principal (ficam só na janela "Descontinuados")
   const list = reports.filter(r => r.active && (isAdmin || r.visible) && r.title.toLowerCase().includes(filter));
   const grid = document.getElementById('reports-grid');
 
   // Botão "Descontinuados (n)": só para o admin
-  document.getElementById('btn-discontinued').style.display = isAdmin ? 'inline-flex' : 'none';
+  document.getElementById('btn-discontinued').style.display = isAdmin || pode('relatorios.descontinuados') ? 'inline-flex' : 'none';
   document.getElementById('discontinued-count').textContent = reports.filter(r => !r.active).length;
   // Botão "Criar painel CSAT": só para o admin e só enquanto o card CSAT não existe (nem descontinuado)
   const temCardCsat = reports.some(r => r.tipo === 'csat');
-  document.getElementById('btn-csat-novo').style.display = isAdmin && !temCardCsat ? 'inline-flex' : 'none';
+  document.getElementById('btn-csat-novo').style.display = pode('csat.importar') && !temCardCsat ? 'inline-flex' : 'none';
 
   if(list.length===0){
     grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">
@@ -327,7 +381,56 @@ function openReportModal(){
   document.getElementById('rp-visible').checked = true;
   document.getElementById('rp-link-field').style.display = '';
   document.getElementById('rp-abrir-estudio').style.display = 'none';
+  preencherOperacoesRelatorio([]);
   openModal('modal-report');
+}
+/* ---------------- perfis de acesso e operações (listas usadas nas janelas) ---------------- */
+const acessos = { perfis: [], operacoes: [] };
+async function apiJson(metodo, caminho, corpo){
+  const r = await fetch(`${API_URL}${caminho}`, { method: metodo, headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` }, body: corpo ? JSON.stringify(corpo) : undefined });
+  let j = null; try { j = await r.json(); } catch (e) {}
+  if (!r.ok) throw new Error((j && j.erro) || `Erro ${r.status} no servidor.`);
+  return j;
+}
+async function carregarOperacoes(){ try { acessos.operacoes = await apiJson('GET', '/api/operacoes'); } catch (e) { acessos.operacoes = []; } return acessos.operacoes; }
+async function carregarPerfisAcesso(){ try { acessos.perfis = await apiJson('GET', '/api/perfis'); } catch (e) { acessos.perfis = []; } return acessos.perfis; }
+// Caixinhas das operações na janela do relatório (marcadas = operações que veem o card)
+async function preencherOperacoesRelatorio(marcadas){
+  const alvo = document.getElementById('rp-operacoes');
+  alvo.innerHTML = '<span class="field-hint">carregando…</span>';
+  const ops = await carregarOperacoes();
+  const lista = operacoesParaEscolha(ops, marcadas);
+  alvo.innerHTML = lista.length ? lista.map(o => `<label class="ops-item"><input type="checkbox" value="${o.id}" ${marcadas.includes(Number(o.id)) ? 'checked' : ''}> ${o.nome}</label>`).join('')
+    : '<span class="field-hint">Nenhuma operação ativa (Administração › Operações).</span>';
+}
+// Operações oferecidas para escolher: só as ativas, mais as que já estão escolhidas (mesmo inativas)
+const operacoesParaEscolha = (ops, escolhidas = []) => ops.filter(o => o.ativo !== false || escolhidas.map(Number).includes(Number(o.id)));
+const operacoesMarcadas = () => [...document.querySelectorAll('#rp-operacoes input:checked')].map(i => Number(i.value));
+// "+ Nova" operação (janela do usuário): cadastra e já deixa escolhida
+async function novaOperacao(){
+  const nome = (prompt('Nome da nova operação (ex.: CENTRAL ATENDE):') || '').trim().toUpperCase();
+  if (!nome) return;
+  try {
+    const { operacao } = await apiJson('POST', '/api/operacoes', { nome });
+    await carregarOperacoes();
+    preencherSelectsUsuario(document.getElementById('us-role').value, operacao.id);
+    showToast(`Operação ${operacao.nome} cadastrada.`);
+  } catch (erro) { showToast(erro.message, 'erro'); }
+}
+// Listas da janela do usuário: perfis de acesso e operações
+function preencherSelectsUsuario(perfilId, operacaoId){
+  const sel = document.getElementById('us-role');
+  sel.innerHTML = acessos.perfis.map(p => `<option value="${p.id}">${p.nome}${(p.permissoes || []).includes('*') ? ' — acesso total' : ''}</option>`).join('');
+  if (perfilId) sel.value = String(perfilId);
+  const op = document.getElementById('us-operacao');
+  op.innerHTML = '<option value="">— sem operação —</option>' + operacoesParaEscolha(acessos.operacoes, operacaoId ? [operacaoId] : []).map(o => `<option value="${o.id}">${o.nome}</option>`).join('');
+  op.value = operacaoId ? String(operacaoId) : '';
+}
+// Perfil de acesso de um usuário (os antigos, sem perfil escolhido, seguem a coluna "perfil")
+function perfilDoUsuario(u){
+  const porId = acessos.perfis.find(p => Number(p.id) === Number(u.perfilAcessoId));
+  if (porId) return porId;
+  return acessos.perfis.find(p => (p.permissoes || []).includes('*') === (u.role === 'admin') && p.sistema) || null;
 }
 function editReport(id){
   const r = reports.find(x=>x.id===id);
@@ -342,6 +445,7 @@ function editReport(id){
   document.getElementById('rp-link-field').style.display = r.tipo === 'link' ? '' : 'none';
   // Painel CSAT e relatórios do Estúdio podem ser abertos no editor (Estúdio)
   document.getElementById('rp-abrir-estudio').style.display = r.tipo === 'csat' || r.tipo === 'estudio' ? '' : 'none';
+  preencherOperacoesRelatorio(r.operacoes || []);
   openModal('modal-report');
 }
 function abrirNoEstudioDoModal(){
@@ -359,7 +463,8 @@ async function saveReport(){
     categoria: document.getElementById('rp-category').value,
     link: document.getElementById('rp-link').value.trim(),
     descricao: document.getElementById('rp-desc').value.trim().toUpperCase(),
-    visivel: document.getElementById('rp-visible').checked
+    visivel: document.getElementById('rp-visible').checked,
+    operacoes: operacoesMarcadas() // nenhuma = todas
   };
 
   // Se editingReportId tem um número, estamos EDITANDO; se é null, estamos CRIANDO
@@ -432,9 +537,15 @@ function toggleViewerMenu(){
   document.getElementById('viewer-menu').classList.toggle('open');
 }
 // Atalho: a tecla Esc fecha o relatório aberto (no painel CSAT, primeiro fecha uma lista de filtro aberta)
+// Página "Sobre o sistema" (ícone (i) no cabeçalho e link na tela de login): autoria e direitos
+function abrirSobre(){ document.getElementById('sobre-overlay').classList.add('active'); }
+function fecharSobre(){ document.getElementById('sobre-overlay').classList.remove('active'); }
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
-  if (document.getElementById('viewer-overlay').classList.contains('active')) closeViewer();
+  if (document.getElementById('sobre-overlay') && document.getElementById('sobre-overlay').classList.contains('active')) fecharSobre();
+  else if (typeof qdModalAberto === 'function' && qdModalAberto()) qdFecharModal();
+  else if (document.querySelector('#qd-pessoa .qd-pessoa')) qdFecharCartao(); // card flutuante do Quadro
+  else if (document.getElementById('viewer-overlay').classList.contains('active')) closeViewer();
   else if (csatAberto()) {
     const listaAberta = document.querySelector('#csat-overlay .ms-pan:not(.hidden)');
     if (listaAberta) listaAberta.classList.add('hidden');
@@ -463,6 +574,7 @@ async function carregarRelatorios(){
       tipo: r.tipo || 'link',   // 'csat' = Painel CSAT · 'estudio' = relatório montado no Estúdio (telas próprias do sistema)
       estudioId: r.estudio_relatorio_id || null,
       visible: r.visivel,
+      operacoes: Array.isArray(r.operacoes) ? r.operacoes.map(Number) : [], // vazio = todas as operações
       active: r.ativo,
       discontinued: r.descontinuado_em ? new Date(r.descontinuado_em).toLocaleDateString('pt-BR') : '—',
       updated: new Date(r.atualizado_em).toLocaleDateString('pt-BR')
@@ -493,6 +605,8 @@ async function carregarUsuarios(){
       name: u.nome || u.email.split('@')[0],
       email: u.email,
       role: u.perfil,
+      perfilAcessoId: u.perfil_acesso_id || null,
+      operacaoId: u.operacao_id || null,
       matricula: u.matricula,
       active: u.ativo,
       created: new Date(u.criado_em).toLocaleDateString('pt-BR'),
@@ -500,6 +614,7 @@ async function carregarUsuarios(){
       resetPedido: u.reset_solicitado_em ? new Date(u.reset_solicitado_em).toLocaleString('pt-BR') : null
     }));
 
+    await Promise.all([carregarPerfisAcesso(), carregarOperacoes()]);
     renderUsers();
   } catch (erro) {
     console.error('Erro de conexão ao carregar usuários:', erro);
@@ -510,7 +625,8 @@ function renderUsers(){
     <tr>
       <td><div class="cell-user"><div class="avatar">${initials(u.name)}</div><div><div class="u-name">${u.name}</div><div class="u-email">${u.email}</div></div></div></td>
       <td style="color:var(--text-faint)">${u.matricula ?? '—'}</td>
-      <td><span class="badge ${u.role==='admin'?'badge-admin':'badge-user'}">${u.role==='admin'?'Administrador':'Usuário'}</span></td>
+      <td><span class="badge ${u.role==='admin'?'badge-admin':'badge-user'}">${(perfilDoUsuario(u) || {}).nome || (u.role==='admin'?'Administrador':'Usuário')}</span></td>
+      <td>${(acessos.operacoes.find(o => Number(o.id) === Number(u.operacaoId)) || {}).nome || '<span style="color:var(--text-faint)">—</span>'}</td>
       <td>
         <div class="cell-status">
           <span class="badge ${u.active?'badge-on':'badge-off'}">${u.active?'Ativo':'Inativo'}</span>
@@ -660,10 +776,10 @@ function openUserModal(){
   document.getElementById('us-name').value = '';
   document.getElementById('us-matricula').value = '';
   document.getElementById('us-email').value = '';
-  document.getElementById('us-pass').value = '';
   document.getElementById('us-email').disabled = false;
+  document.getElementById('us-pass').value = '';
   document.getElementById('us-pass').disabled = false;
-  document.getElementById('us-role').value = 'usuario';
+  preencherSelectsUsuario((acessos.perfis.find(p => p.sistema && !(p.permissoes || []).includes('*')) || acessos.perfis[0] || {}).id, null);
   document.getElementById('us-active').checked = true;
   openModal('modal-user');
 }
@@ -674,18 +790,20 @@ function editUser(id){
   document.getElementById('us-name').value = u.name;
   document.getElementById('us-matricula').value = u.matricula ?? '';
   document.getElementById('us-email').value = u.email;
-  document.getElementById('us-email').disabled = true;
+  document.getElementById('us-email').disabled = false; // dá para corrigir um e-mail digitado errado (é o login dele)
   document.getElementById('us-pass').value = '';
   document.getElementById('us-pass').disabled = true;
-  document.getElementById('us-role').value = u.role;
+  preencherSelectsUsuario((perfilDoUsuario(u) || {}).id, u.operacaoId);
   document.getElementById('us-active').checked = u.active;
   openModal('modal-user');
 }
 async function saveUser(){
   const name = document.getElementById('us-name').value.trim().toUpperCase();
   const email = document.getElementById('us-email').value.trim().toLowerCase();
-  const role = document.getElementById('us-role').value;
+  const perfilAcessoId = Number(document.getElementById('us-role').value) || null; // perfil de acesso (Administração › Perfis)
+  const operacaoId = Number(document.getElementById('us-operacao').value) || null;
   const pass = document.getElementById('us-pass').value;
+  if(!perfilAcessoId){ showToast('Escolha o perfil de acesso.', 'erro'); return; }
 
   if(!name || !email){ showToast('Preencha nome e e-mail.', 'erro'); return; }
 
@@ -703,9 +821,12 @@ async function saveUser(){
         },
         body: JSON.stringify({
           nome: name,
-          perfil: role,
+          perfil_acesso_id: perfilAcessoId,
+          operacao_id: operacaoId,
           matricula: Number(matriculaEdit),
-          ativo: document.getElementById('us-active').checked
+          ativo: document.getElementById('us-active').checked,
+          // e-mail só vai quando mudou (o servidor troca também o login)
+          ...(email !== (users.find(x => x.id === editingUserId) || {}).email ? { email } : {})
         })
       });
       const resultado = await resposta.json();
@@ -738,7 +859,7 @@ async function saveUser(){
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${localStorage.getItem('token')}`
       },
-      body: JSON.stringify({ nome: name, email, senha: pass, perfil: role, matricula: Number(matricula) })
+      body: JSON.stringify({ nome: name, email, senha: pass, perfil_acesso_id: perfilAcessoId, operacao_id: operacaoId, matricula: Number(matricula) })
     });
     const resultado = await resposta.json();
 
@@ -851,7 +972,7 @@ const csatNomeMes = m => { const [a, n] = m.split('-'); return CSAT_MESES[+n - 1
 const CSAT_SEM_HORA = 'Sem horário';
 const csatHoraRotulo = m => m == null ? CSAT_SEM_HORA : String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
 const csatHoraMinutos = rot => { if (rot === CSAT_SEM_HORA) return -1; const [h, m] = rot.split(':'); return +h * 60 + +m; };
-const csatAdmin = () => session && session.role === 'admin';
+const csatAdmin = () => pode('csat.importar'); // importar avaliações e meta (perfil de acesso)
 function csatAberto(){ return csatEl('csat-overlay').classList.contains('active'); }
 
 // Chamada ao servidor: devolve o JSON ou lança um erro com a mensagem do servidor
@@ -1554,8 +1675,10 @@ async function doLogin() {
 // (chamada pelo doLogin, ou depois da troca obrigatória de senha)
 function entrarNoSistema(resultado) {
     // 1. Define quem é o usuário logado, usando o perfil de verdade vindo do banco
-    const isAdmin = resultado.perfil === 'admin';
-    session = { name: resultado.usuario.email, role: isAdmin ? 'admin' : 'usuario' };
+    // Permissões do perfil de acesso (servidor antigo, sem perfis: admin = tudo, usuário = relatórios)
+    const perms = Array.isArray(resultado.permissoes) && resultado.permissoes.length ? resultado.permissoes : (resultado.perfil === 'admin' ? ['*'] : ['relatorios']);
+    const isAdmin = perms.includes('*');
+    session = { name: resultado.usuario.email, role: isAdmin ? 'admin' : 'usuario', perms, perfilNome: resultado.perfilNome || (isAdmin ? 'Administrador' : 'Usuário'), operacao: resultado.operacao || null };
 
     // 3. Troca a tela de login pela tela do sistema
     document.getElementById('login-screen').style.display = 'none';
@@ -1564,14 +1687,16 @@ function entrarNoSistema(resultado) {
     // 4. Preenche as informações do usuário na barra superior
     document.getElementById('user-name').textContent = session.name;
     document.getElementById('user-avatar').textContent = initials(session.name);
-    document.getElementById('user-role-label').textContent = 'Perfil: ' + (isAdmin ? 'Administrador' : 'Usuário');
+    document.getElementById('user-role-label').textContent = 'Perfil: ' + session.perfilNome + (session.operacao ? ' · ' + session.operacao.nome : '');
     document.getElementById('dash-greeting').textContent = 'Olá, ' + session.name.split('@')[0];
 
-    // 5. Mostra ou esconde partes exclusivas do Administrador
-    document.getElementById('nav-users').style.display = isAdmin ? 'flex' : 'none';
-    document.getElementById('nav-estudio').style.display = isAdmin ? 'flex' : 'none';
-    document.getElementById('btn-new-report').style.display = isAdmin ? 'inline-flex' : 'none';
-    document.getElementById('reports-sub').textContent = isAdmin
+    // 5. Menu e botões conforme as permissões do perfil de acesso
+    aplicarPermissoesNoMenu();
+    // Contador de vínculos DPO × WFM. O quadro.js é carregado depois do script.js: se a pessoa entrar antes de ele terminar, conta no próximo instante
+    if (pode('quadro.vinculos')) { const contar = () => typeof qdAtualizarBadge === 'function' ? qdAtualizarBadge() : setTimeout(contar, 300); contar(); }
+    const gerenciaRel = pode('relatorios.publicar');
+    document.getElementById('btn-new-report').style.display = gerenciaRel ? 'inline-flex' : 'none';
+    document.getElementById('reports-sub').textContent = gerenciaRel
       ? 'Publique e gerencie a visibilidade dos relatórios.'
       : 'Relatórios disponíveis para você.';
 
@@ -1580,7 +1705,7 @@ function entrarNoSistema(resultado) {
     if (typeof lswAoEntrar === 'function') lswAoEntrar(isAdmin);
     renderDashboard();
     renderReports();
-    if (isAdmin) carregarUsuarios(); // a lista de usuários é exclusiva do admin
+    if (pode('usuarios.gerenciar') || pode('usuarios.senha')) carregarUsuarios(); // contador de pedidos de reset no menu
     carregarRelatorios();
     updateSidebarLogo();
     // Preferência "Menu lateral ao entrar: Recolhido"

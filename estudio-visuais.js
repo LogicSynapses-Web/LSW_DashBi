@@ -34,7 +34,8 @@ const VZ_AGG_COLUNA = { soma: 'Soma', media: 'Média', contagem_distinta: 'Conta
 /* ---------------- dados da base no navegador ---------------- */
 async function vzCarregarDados(){
   ed.dadosProntos = false;
-  const dias = ed.arquivos.slice(-62); // até ~2 meses no editor
+  // Base "foto" (ex.: QUADRO, um retrato por carga): o relatório pode usar só o dia mais recente, para não somar retratos
+  const dias = (ed.def.apoio || {}).ultimoDia ? ed.arquivos.slice(-1) : ed.arquivos.slice(-62); // até ~2 meses no editor
   const st = edEl('ed-status-dados');
   if (!ed.leitura) await daxConverterMedidasAntigas(); // estudio-dax.js: medidas do formulário antigo → fórmula DAX
   if (ed.base.fonte === 'csat') return vzCarregarDadosCsat(); // E4: base ligada ao banco (avaliações do Painel CSAT)
@@ -122,12 +123,67 @@ async function vzMontarRelacoes(){
       ed.avisosRel.push(`Relação com a base ${r.base_nome || r.base_id}: ${erro.message}`);
     }
   }
-  await estSql(`create or replace view dados as select ${sel.join(', ')} from principal p ${joins.join(' ')}`);
+  await estSql(`create or replace view dados_base as select ${sel.join(', ')} from principal p ${joins.join(' ')}`);
+  extras.push(...await vzMontarApoio()); // tabelas de apoio (Calendário, Faixas de 30 min) → visões "dados" e "dados_faixa"
   ed.base.colunas = [...ed.colunasOriginais, ...extras];
   if (ed.avisosRel.length) showToast(ed.avisosRel.join(' · '), 'erro', 6000);
   if (!ed.leitura && edEl('ed-dados')) edRenderDados();
 }
 const vzColunaOriginal = nome => (ed.colunasOriginais || ed.base.colunas).find(c => c.nome === nome);
+
+/* ---------------- tabelas de apoio · Calendário e Faixas de 30 min (14/10/2026) ----------------
+   Como a tabela calendário do Power BI: cada linha da base é cruzada com os dias do mês (CALENDARIO) e,
+   nos visuais que usam o horário, também com as 48 faixas de 30 min (FAIXAS). Assim uma medida DAX pode
+   perguntar "no dia do eixo, esta pessoa estava de férias?" comparando as datas dela com CALENDARIO[DATA].
+   Liga-se no desenho do relatório: def.apoio = { calendario: true, faixas: true, mes: 'AAAA-MM' (vazio = mês do último dia da base) }.
+   Colunas: CALENDARIO[DATA], [DIA], [DIA DA SEMANA] (1 = domingo … 7 = sábado), [NOME DO DIA], [FERIADO] (1/0), [TIPO] (REAL/PROJEÇÃO,
+   comparando com o último dia de dados) · FAIXAS[INÍCIO] (hora), [FAIXA] ("HH:MM"). */
+// Feriados nacionais do ano (fixos + móveis pela Páscoa: Carnaval seg/ter, Sexta-feira Santa, Corpus Christi)
+function vzFeriadosNacionais(ano){
+  const a = ano % 19, b = Math.floor(ano / 100), c = ano % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25),
+    g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4,
+    l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451), mes = Math.floor((h + l - 7 * m + 114) / 31),
+    dia = ((h + l - 7 * m + 114) % 31) + 1;
+  const pascoa = new Date(Date.UTC(ano, mes - 1, dia));
+  const mais = n => new Date(pascoa.getTime() + n * 86400000).toISOString().slice(0, 10);
+  const fixos = ['01-01', '04-21', '05-01', '09-07', '10-12', '11-02', '11-15', '11-20', '12-25'].map(x => `${ano}-${x}`);
+  return new Set([...fixos, mais(-48), mais(-47), mais(-2), mais(60)]);
+}
+const VZ_DIAS_SEMANA = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
+async function vzMontarApoio(){
+  const ap = ed.def.apoio || {}, extras = [];
+  const col = (tabela, nome, rotulo, tipo) => ({ origem: nome, nome, rotulo: `${tabela} · ${rotulo}`, tipo, manter: true, vazio: 'nulo', padrao: '',
+    _rel: 'apoio', _relBase: tabela, _rotuloOriginal: rotulo, _nomeOriginal: nome, _apoio: tabela });
+  if (!ap.calendario) {
+    await estSql('create or replace view dados as select * from dados_base');
+    await estSql('create or replace view dados_faixa as select * from dados_base');
+    return extras;
+  }
+  const ultimoDia = ed.arquivos.length ? ed.arquivos[ed.arquivos.length - 1].dia : new Date().toISOString().slice(0, 10);
+  const mes = /^\d{4}-\d{2}$/.test(ap.mes || '') ? ap.mes : ultimoDia.slice(0, 7);
+  const [ano, m] = mes.split('-').map(Number), nDias = new Date(ano, m, 0).getDate(), feriados = vzFeriadosNacionais(ano);
+  const linhas = Array.from({ length: nDias }, (_, i) => {
+    const dia = `${mes}-${String(i + 1).padStart(2, '0')}`, sem = new Date(dia + 'T12:00:00').getDay();
+    return `(date '${dia}', ${i + 1}, ${sem + 1}, '${VZ_DIAS_SEMANA[sem]}', ${feriados.has(dia) ? 1 : 0}, '${dia <= ultimoDia ? 'REAL' : 'PROJEÇÃO'}')`;
+  });
+  await estSql(`create or replace table apoio_calendario as select * from (values ${linhas.join(', ')})
+    as t(cal__data, cal__dia, cal__dia_semana, cal__nome_dia, cal__feriado, cal__tipo)`);
+  await estSql('create or replace view dados as select b.*, c.* from dados_base b cross join apoio_calendario c');
+  extras.push(col('CALENDARIO', 'cal__data', 'DATA', 'data'), col('CALENDARIO', 'cal__dia', 'DIA', 'inteiro'),
+    col('CALENDARIO', 'cal__dia_semana', 'DIA DA SEMANA', 'inteiro'), col('CALENDARIO', 'cal__nome_dia', 'NOME DO DIA', 'texto'),
+    col('CALENDARIO', 'cal__feriado', 'FERIADO', 'inteiro'), col('CALENDARIO', 'cal__tipo', 'TIPO', 'texto'));
+  if (ap.faixas) {
+    await estSql(`create or replace table apoio_faixas as select make_time(cast(i // 2 as bigint), cast((i % 2) * 30 as bigint), 0.0) as fx__inicio,
+        lpad(cast(i // 2 as varchar), 2, '0') || ':' || case when i % 2 = 0 then '00' else '30' end as fx__faixa
+      from range(48) r(i)`);
+    await estSql('create or replace view dados_faixa as select d.*, f.* from dados d cross join apoio_faixas f');
+    extras.push(col('FAIXAS', 'fx__inicio', 'INÍCIO', 'hora'), col('FAIXAS', 'fx__faixa', 'FAIXA', 'texto'));
+  } else await estSql('create or replace view dados_faixa as select * from dados');
+  ed.apoioMes = mes;
+  return extras;
+}
+// Visual que usa uma coluna das FAIXAS (eixo, linhas, legenda...) lê a visão cruzada com as 48 faixas; os demais, a visão por dia
+const vzUsaFaixa = v => JSON.stringify(v.campos || {}).includes('"fx__');
 
 // E4 · base "ligada ao banco" (Painel CSAT): lê UM mês de avaliações pela rota do painel e monta a tabela no navegador.
 // Colunas: data, operador, supervisor, operacao, local, nota, hora (faixa de 30 min). Vazio no banco = vazio aqui.
@@ -420,7 +476,7 @@ function vzDesenharGrafico(id, v, linhas, medidas, ce, cl){
   const nf = vzFormatoNum(v, medidas[0]), fmtV = val => vzFmt(val, nf.formato, nf.casas);
   // Formatação escolhida na aba Formatar (tudo opcional: sem escolha = automático/tema)
   const coresSeries = vzF(v, 'grafico', 'cores', []) || [];
-  const paleta = t.paleta.map((c, i) => coresSeries[i] || c);
+  const paleta = Array.from({ length: Math.max(t.paleta.length, coresSeries.length) }, (_, i) => coresSeries[i] || t.paleta[i % t.paleta.length]);
   const corTexto = vzF(v, 'texto', 'cor', null) || t.texto, tamTexto = vzF(v, 'texto', 'tamanho', 11);
   const modoLegenda = vzF(v, 'grafico', 'legenda', 'auto'), rotulos = vzF(v, 'grafico', 'rotulos', false), grade = vzF(v, 'grafico', 'grade', true);
   let series, categorias;
@@ -950,8 +1006,10 @@ function vzCondFiltro(x){
 }
 // De onde o visual lê: a visão "dados" inteira ou só as linhas que passam nos filtros
 function vzFonte(v){
-  const conds = vzFiltrosDe(v).map(vzCondFiltro).filter(Boolean);
-  return conds.length ? `(select * from dados where ${conds.map(c => '(' + c + ')').join(' and ')}) as dados` : 'dados';
+  // Faixas de 30 min: só os visuais que usam a coluna da faixa leem a visão cruzada (senão cada pessoa contaria 48 vezes)
+  const faixa = vzUsaFaixa(v), visao = faixa ? 'dados_faixa' : 'dados';
+  const conds = vzFiltrosDe(v).map(vzCondFiltro).filter(c => c && (faixa || !c.includes('"fx__')));
+  return conds.length ? `(select * from ${visao} where ${conds.map(c => '(' + c + ')').join(' and ')}) as dados` : (faixa ? 'dados_faixa as dados' : 'dados');
 }
 // Rótulo de um valor na lista do filtro (data completa dd/mm/aaaa, como no Painel CSAT)
 function vzRotuloFiltro(v, tipo){
@@ -1111,17 +1169,98 @@ function vzFmtSet(id, sec, k, val){
 }
 function vzFmtCor(id, sec, k, i, val){ // cor de uma série (lista de cores)
   const v = edVisual(id), lista = [...(vzF(v, 'grafico', 'cores', []) || [])];
-  lista[i] = val; while (lista.length && !lista[lista.length - 1]) lista.pop();
+  lista[i] = val; for (let j = 0; j < lista.length; j++) if (!lista[j]) lista[j] = null;
+  while (lista.length && !lista[lista.length - 1]) lista.pop();
   vzFmtSet(id, sec, k, lista.length ? lista : null);
+}
+
+/* ---------------- paleta de cores (como a do Excel) ----------------
+   Um botão mostra a cor atual; ao clicar abre a paleta: Automático, cores do tema (10 cores × 6 tons),
+   cores padrão, cores recentes, código #hex e "Mais cores…" (o seletor completo do navegador). */
+const VZ_CORES_BASE = ['#ffffff', '#1a1b23', '#666879', '#c9793f', '#d95926', '#3987e5', '#199e70', '#c98500', '#d55181', '#9085e9'];
+const VZ_CORES_PADRAO = ['#c00000', '#ff0000', '#ffc000', '#ffff00', '#92d050', '#00b050', '#00b0f0', '#0070c0', '#002060', '#7030a0'];
+const VZ_CORES_RECENTES = 'dashbi-cores-recentes';
+// Mistura uma cor com branco (p > 0, clareia) ou preto (p < 0, escurece)
+function vzMisturar(hex, p){
+  const n = parseInt(hex.slice(1), 16), alvo = p > 0 ? 255 : 0, f = Math.abs(p);
+  const c = [n >> 16, (n >> 8) & 255, n & 255].map(x => Math.round(x + (alvo - x) * f));
+  return '#' + c.map(x => x.toString(16).padStart(2, '0')).join('');
+}
+// Coluna de tons de cada cor base: a própria cor, 3 mais claras e 2 mais escuras
+const vzTons = hex => hex === '#ffffff' ? [hex, '#f2f2f2', '#d9d9d9', '#bfbfbf', '#a6a6a6', '#7f7f7f']
+  : hex === '#1a1b23' ? [hex, '#7f7f7f', '#595959', '#404040', '#262626', '#0d0d0d']
+  : [hex, vzMisturar(hex, .8), vzMisturar(hex, .6), vzMisturar(hex, .4), vzMisturar(hex, -.25), vzMisturar(hex, -.5)];
+function vzCoresRecentes(){ try { return JSON.parse(localStorage.getItem(VZ_CORES_RECENTES) || '[]'); } catch (e) { return []; } }
+function vzGuardarRecente(cor){
+  const lista = [cor, ...vzCoresRecentes().filter(c => c !== cor)].slice(0, 10);
+  try { localStorage.setItem(VZ_CORES_RECENTES, JSON.stringify(lista)); } catch (e) {}
+}
+// Botão que mostra a cor atual (alvo = { id, sec, k, i? } — i = posição na lista de cores das séries)
+function vzBotaoCor(alvo, val, padraoTxt, corAuto){
+  const dados = estEsc(JSON.stringify(alvo));
+  const semCor = val === 'transparent'; // "Sem preenchimento" (fundo e borda do visual)
+  const nome = semCor ? 'Sem preenchimento' : val ? val.toUpperCase() : (padraoTxt || 'Automática');
+  return `<button type="button" class="vz-cor-btn ${val ? '' : 'auto'}" data-alvo="${dados}" onclick="vzAbrirCores(this)" title="${val ? nome : 'Automática (' + (padraoTxt || 'do tema') + ')'}">
+    <i class="${semCor ? 'vz-cor-sem' : ''}" style="background:${semCor ? '' : (val || corAuto || 'transparent')}"></i><span>${nome}</span><b>▾</b></button>`;
+}
+function vzAbrirCores(botao){
+  vzFecharCores();
+  const alvo = JSON.parse(botao.dataset.alvo);
+  const amostra = c => `<button type="button" class="vz-cor-am" style="background:${c}" title="${c.toUpperCase()}" onclick="vzEscolherCor('${c}')"></button>`;
+  const recentes = vzCoresRecentes();
+  const pop = document.createElement('div');
+  pop.id = 'vz-cores'; pop.className = 'vz-cores';
+  pop._alvo = alvo;
+  pop.innerHTML = `
+    <button type="button" class="vz-cores-auto" onclick="vzEscolherCor(null)"><i></i> Automática (cor do tema)</button>
+    ${alvo.sec === 'fundo' ? '<button type="button" class="vz-cores-auto" onclick="vzEscolherCor(\'transparent\')"><i class="vz-cor-sem"></i> Sem preenchimento</button>' : ''}
+    <div class="vz-cores-rot">Cores do tema</div>
+    <div class="vz-cores-tema">${VZ_CORES_BASE.map(b => `<div class="vz-cores-col">${vzTons(b).map(amostra).join('')}</div>`).join('')}</div>
+    <div class="vz-cores-rot">Cores padrão</div>
+    <div class="vz-cores-linha">${VZ_CORES_PADRAO.map(amostra).join('')}</div>
+    ${recentes.length ? `<div class="vz-cores-rot">Usadas recentemente</div><div class="vz-cores-linha">${recentes.map(amostra).join('')}</div>` : ''}
+    <div class="vz-cores-hex">
+      <label for="vz-cores-hex">#</label>
+      <input id="vz-cores-hex" type="text" maxlength="7" placeholder="ex.: 1f4fd1" autocomplete="off"
+        onkeydown="if (event.key === 'Enter') vzCorDoHex()">
+      <button type="button" class="btn btn-ghost btn-small" style="width:auto" onclick="vzCorDoHex()">Aplicar</button>
+    </div>
+    <label class="vz-cores-mais">🎨 Mais cores…<input type="color" onchange="vzEscolherCor(this.value)"></label>`;
+  document.body.appendChild(pop);
+  // posiciona embaixo do botão (ou em cima, se não couber), sem sair da tela
+  const r = botao.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight;
+  pop.style.left = Math.max(8, Math.min(r.left, innerWidth - w - 8)) + 'px';
+  pop.style.top = (r.bottom + 6 + h < innerHeight ? r.bottom + 6 : Math.max(8, r.top - h - 6)) + 'px';
+  setTimeout(() => { document.addEventListener('mousedown', vzCoresFora, true); document.addEventListener('keydown', vzCoresEsc, true); }, 0);
+}
+function vzCoresFora(e){ const p = document.getElementById('vz-cores'); if (p && !p.contains(e.target)) vzFecharCores(); }
+function vzCoresEsc(e){ if (e.key === 'Escape') { e.stopPropagation(); vzFecharCores(); } }
+function vzFecharCores(){
+  const p = document.getElementById('vz-cores'); if (p) p.remove();
+  document.removeEventListener('mousedown', vzCoresFora, true); document.removeEventListener('keydown', vzCoresEsc, true);
+}
+function vzCorDoHex(){
+  let t = document.getElementById('vz-cores-hex').value.trim().replace(/^#/, '');
+  if (/^[0-9a-f]{3}$/i.test(t)) t = t.split('').map(c => c + c).join('');
+  if (!/^[0-9a-f]{6}$/i.test(t)) { showToast('Código de cor inválido. Use 6 dígitos, ex.: 1f4fd1.', 'erro'); return; }
+  vzEscolherCor('#' + t.toLowerCase());
+}
+function vzEscolherCor(cor){
+  const p = document.getElementById('vz-cores'); if (!p) return;
+  const a = p._alvo;
+  vzFecharCores();
+  if (cor && cor !== 'transparent') vzGuardarRecente(cor);
+  if (a.i !== undefined) vzFmtCor(a.id, a.sec, a.k, a.i, cor);
+  else vzFmtSet(a.id, a.sec, a.k, cor);
+  edRenderProps(); // atualiza o botão com a cor nova
 }
 function vzHtmlFormatar(v){
   const id = v.id;
   const temaPaleta = vzTema().paleta;
   // pequenos construtores de controle
+  // cor: botão que abre a paleta completa (tema, padrão, recentes, #hex, mais cores)
   const cor = (sec, k, rot, padraoTxt) => { const val = vzF(v, sec, k, null);
-    return `<div class="vz-fmt-lin"><span>${rot}</span><span class="vz-fmt-cor">
-      <input type="color" value="${val || '#888888'}" class="${val ? '' : 'auto'}" onchange="vzFmtSet('${id}', '${sec}', '${k}', this.value)">
-      ${val ? `<button class="vz-fmt-auto" onclick="vzFmtSet('${id}', '${sec}', '${k}', null)" title="Voltar ao automático">Auto</button>` : `<span class="ed-fraco">${padraoTxt || 'automática'}</span>`}</span></div>`; };
+    return `<div class="vz-fmt-lin"><span>${rot}</span>${vzBotaoCor({ id, sec, k }, /^#/.test(val || '') || val === 'transparent' ? val : null, padraoTxt)}</div>`; }; // só #hex (ou "sem preenchimento") vira cor (atalhos como "accent" ficam no outro controle)
   const num = (sec, k, rot, min, max, padrao) => `<div class="vz-fmt-lin"><span>${rot}</span>
       <input type="number" class="ed-inp vz-fmt-num" min="${min}" max="${max}" placeholder="${padrao}" value="${vzF(v, sec, k, '') ?? ''}"
         onchange="vzFmtSet('${id}', '${sec}', '${k}', this.value === '' ? null : Math.min(${max}, Math.max(${min}, Number(this.value))))"></div>`;
@@ -1180,7 +1319,8 @@ function vzHtmlFormatar(v){
       + opcMedidas('card', 'subDe', '% de qual medida', false)
       + txt('card', 'subTexto', 'Texto fixo', ''));
     html += grupo('Faixa colorida', 'cardDestaque',
-        sel('card', 'destaque', 'Cor da faixa', { '': 'Nenhuma', accent: 'Cor de destaque', success: 'Verde', warning: 'Amarelo', danger: 'Vermelho', faint: 'Cinza' }, ''));
+        sel('card', 'destaque', 'Atalho', { ...(/^#/.test(vzF(v, 'card', 'destaque', '') || '') ? { [vzF(v, 'card', 'destaque', '')]: 'Cor escolhida (abaixo)' } : {}), '': 'Nenhuma', accent: 'Cor de destaque do sistema', success: 'Verde (positivo)', warning: 'Amarelo (atenção)', danger: 'Vermelho (negativo)', faint: 'Cinza' }, '')
+      + cor('card', 'destaque', 'Ou escolha a cor', 'nenhuma'));
   } else if (v.tipo === 'tabela') {
     html += grupo('Tabela', 'tabela',
         sel('tabela', 'layout', 'Tipo', { padrao: 'Dinâmica (com subtotais)', lista: 'Lista (como as tabelas do Painel CSAT)' }, 'padrao')
@@ -1201,7 +1341,9 @@ function vzHtmlFormatar(v){
       + chk('tabela', 'horaFaixa', 'Horário como faixa (08:00 – 08:30)', false)
       + chk('tabela', 'semVazio', 'Sem a linha "vazio"', false));
   } else {
-    const nSeries = v.tipo === 'pizza' ? 6 : Math.max(1, (v.campos && v.campos.valores || []).length);
+    // pizza ou gráfico com Legenda: várias séries saem de uma coluna → libera 10 cores; senão, uma por medida em Valores
+    const temLegenda = ((v.campos || {}).legenda || []).length > 0;
+    const nSeries = v.tipo === 'pizza' || temLegenda ? 10 : Math.max(1, (v.campos && v.campos.valores || []).length);
     const cores = vzF(v, 'grafico', 'cores', []) || [];
     html += grupo('Gráfico', 'grafico',
         (v.tipo !== 'pizza' ? sel('grafico', 'legenda', 'Legenda', { auto: 'Automática', mostrar: 'Mostrar', ocultar: 'Ocultar' }, 'auto') : '')
@@ -1209,8 +1351,9 @@ function vzHtmlFormatar(v){
       + (['linhas', 'area', 'colunas'].includes(v.tipo) ? chk('grafico', 'meta', 'Linha da meta (pontos verdes/vermelhos)', false) : '')
       + (['linhas', 'area'].includes(v.tipo) ? chk('grafico', 'suave', 'Linha suave', false) : ''));
     html += grupo(`Cores ${v.tipo === 'pizza' ? 'das fatias' : 'das séries'}`, 'cores', `<div class="vz-fmt-paleta">`
-      + Array.from({ length: Math.min(6, nSeries) }, (_, i) => `<span class="vz-fmt-cor"><input type="color" value="${cores[i] || temaPaleta[i]}" onchange="vzFmtCor('${id}', 'grafico', 'cores', ${i}, this.value)" title="${i + 1}ª cor"></span>`).join('')
-      + (cores.length ? `<button class="vz-fmt-auto" onclick="vzFmtSet('${id}', 'grafico', 'cores', null)">Auto</button>` : '')
+      + Array.from({ length: Math.min(10, nSeries) }, (_, i) => `<span class="vz-fmt-serie" title="${i + 1}ª ${v.tipo === 'pizza' ? 'fatia' : 'série'}">${i + 1}
+          ${vzBotaoCor({ id, sec: 'grafico', k: 'cores', i }, cores[i] || null, 'auto', temaPaleta[i % temaPaleta.length])}</span>`).join('')
+      + (cores.length ? `<button class="vz-fmt-auto" onclick="vzFmtSet('${id}', 'grafico', 'cores', null)">Todas automáticas</button>` : '')
       + `</div>`);
   }
   html += grupo('Texto', 'texto', num('texto', 'tamanho', 'Tamanho da fonte', 8, 24, v.tipo === 'tabela' ? 12 : 11) + cor('texto', 'cor', 'Cor do texto'));
