@@ -214,7 +214,7 @@ tr.est-desligada td.est-ck:first-child{ opacity:1; }
 .ed-modo-previa .ed-vazio-txt{ display:none !important; }
 .ed-modo-previa #ed-grade{ background-image:none; cursor:default; }
 .ed-modo-previa .ed-vis-cab{ cursor:default; }
-.ed-modo-previa .ed-vis:hover, .ed-modo-previa .ed-vis.sel{ border-color:var(--vis-borda, var(--border)); box-shadow:none; }
+.ed-modo-previa .ed-vis:hover, .ed-modo-previa .ed-vis.sel{ outline:none; }
 /* Título escondido (aba Formatar): na edição a barra fica clarinha (é por ela que se arrasta); na prévia some */
 .ed-vis.sem-titulo .ed-vis-cab{ border-bottom-color:transparent; }
 .ed-vis.sem-titulo .ed-vis-titulo{ opacity:.35; }
@@ -224,11 +224,34 @@ tr.est-desligada td.est-ck:first-child{ opacity:1; }
 
 /* Visual (caixa na tela) */
 .ed-vis{
-  height:100%; display:flex; flex-direction:column; background:var(--vis-fundo, var(--surface)); border:1px solid var(--vis-borda, var(--border)); border-radius:10px; overflow:hidden;
+  height:100%; display:flex; flex-direction:column; background:var(--vis-fundo, var(--surface)); overflow:hidden;
+  /* borda e sombra configuráveis na aba Formatar (lados, espessura, estilo, cor, cantos, sombra) */
+  border-style:var(--vis-bs, solid); border-color:var(--vis-borda, var(--border));
+  border-width:var(--vis-bt, 1px) var(--vis-bd, 1px) var(--vis-bb, 1px) var(--vis-be, 1px);
+  border-radius:var(--vis-raio, 10px); box-shadow:var(--vis-sombra, none);
   transition:border-color .12s, box-shadow .12s;
 }
-.ed-vis:hover{ border-color:var(--text-faint); }
-.ed-vis.sel{ border-color:var(--accent); box-shadow:0 0 0 2px var(--accent-soft); }
+/* Seleção e passar o mouse: contorno POR FORA (outline), para não esconder a borda e a sombra escolhidas */
+.ed-vis:hover{ outline:1px solid var(--text-faint); outline-offset:2px; }
+.ed-vis.sel{ outline:2px solid var(--accent); outline-offset:2px; }
+.ed-vis.sel.sel-principal{ outline-width:3px; }
+#ed-grade:has(.sel-principal) .ed-vis.sel:not(.sel-principal){ outline-style:dashed; }
+/* Pincel de formatação ligado */
+.ed-pincel-ativo #ed-grade .ed-vis, .ed-pincel-ativo #ed-grade .ed-vis-cab{ cursor:copy; }
+.ed-rib-btn.ativo{ background:var(--accent-soft); color:var(--accent-light); }
+/* Organizar: botões pequenos de ícone e campos de posição */
+.ed-rib-ico{ border:1px solid transparent; background:none; color:var(--text-dim); border-radius:6px; padding:4px 5px; cursor:pointer; display:inline-flex; }
+.ed-rib-ico:hover:not(:disabled){ background:var(--surface-2); color:var(--text); border-color:var(--border); }
+.ed-rib-ico:disabled{ opacity:.35; cursor:default; }
+.ed-rib-ico .sr{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
+.ed-pos{ display:inline-flex; align-items:center; gap:4px; font-size:calc(11.5px * var(--escala-fonte)); color:var(--text-dim); margin-right:6px; }
+.ed-pos input{ width:58px; padding:3px 5px; }
+/* Borda por lados (aba Formatar) */
+.vz-lados{ display:inline-flex; gap:3px; align-items:center; flex-wrap:wrap; }
+.vz-lado{ border:1px solid var(--border); background:var(--surface-2); color:var(--text-faint); border-radius:5px; padding:2px; cursor:pointer; display:inline-flex; }
+.vz-lado.on{ color:var(--accent-light); border-color:var(--accent); background:var(--accent-soft); }
+.vz-lado-txt{ border:1px solid var(--border); background:none; color:var(--text-dim); border-radius:5px; padding:2px 7px; cursor:pointer; font-size:calc(11px * var(--escala-fonte)); }
+.vz-lado-txt:hover{ color:var(--text); }
 .ed-vis-cab{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:5px 10px; cursor:move; border-bottom:1px solid var(--border); flex-shrink:0; }
 .ed-vis-titulo{ font-size:calc(12.5px * var(--escala-fonte)); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .ed-vis-tipo{ font-size:calc(10.5px * var(--escala-fonte)); color:var(--text-faint); white-space:nowrap; }

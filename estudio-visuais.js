@@ -1152,22 +1152,46 @@ async function vzExportar(){
 /* ---------------- aba Formatar ---------------- */
 // Tudo fica em v.formato[seção][opção]. Opção apagada (null) = volta ao automático (cores do tema etc.).
 // Seções: titulo · fundo · numero · texto · card · grafico · tabela
+// Vários visuais selecionados: a mudança vale para todos os que têm aquela opção
+// (título, fundo, borda e texto valem para qualquer tipo; as opções de um tipo, só para os do mesmo tipo)
+const VZ_SEC_COMUNS = ['titulo', 'fundo', 'texto'];
+function vzAlvosFmt(id, sec){
+  const sel = typeof edSelecionados === 'function' ? edSelecionados() : [];
+  if (sel.length < 2 || !sel.includes(id) || sec === 'filtros') return [id];
+  const tipo = edVisual(id).tipo;
+  return sel.filter(x => { const v = edVisual(x); return v && (VZ_SEC_COMUNS.includes(sec) || (sec === 'numero' ? v.tipo !== 'filtro' : v.tipo === tipo)); });
+}
 function vzFmtSet(id, sec, k, val){
-  const v = edVisual(id);
-  edMudar(() => {
+  const alvos = vzAlvosFmt(id, sec);
+  edMudar(() => alvos.forEach(x => {
+    const v = edVisual(x);
     v.formato = v.formato || {};
     const s = v.formato[sec] = v.formato[sec] || {};
-    if (val === null || val === '' || (typeof val === 'number' && isNaN(val))) delete s[k]; else s[k] = val;
+    if (val === null || val === '' || (typeof val === 'number' && isNaN(val))) delete s[k]; else s[k] = Array.isArray(val) ? val.slice() : val;
     if (!Object.keys(s).length) delete v.formato[sec];
-  });
+    if (!Object.keys(v.formato).length) delete v.formato;
+  }));
+  alvos.forEach(x => vzFmtRedesenhar(x, sec, k));
+  if (val === null || ['sub', 'layout', 'borda'].includes(k)) edRenderProps(); // botão "Auto" e opções que mostram/escondem outras
+}
+// Redesenha só o necessário depois de mudar uma opção de formatação
+function vzFmtRedesenhar(id, sec, k){
+  const v = edVisual(id);
   if (sec === 'titulo' || sec === 'fundo') edAplicarMoldura(id); // só a caixa muda: não precisa recalcular os dados
   else if (v.tipo === 'filtro') { vzRenderTodos(); edAplicarMoldura(id); } // mudou o alcance/ligação do filtro: recalcula todos
   else if (sec === 'filtros' || (sec === 'tabela' && ['layout', 'semVazio'].includes(k))) vzRender(id); // muda a consulta
   else if (v.tipo === 'tabela' && (vzCorpo(id) || {})._tabela) vzMontarTabela(id); // tabela: só redesenha, sem nova consulta
   else { vzRender(id); if (sec === 'card') edAplicarMoldura(id); }
-  if (val === null || ['sub', 'layout'].includes(k)) edRenderProps(); // botão "Auto" e opções que mostram/escondem outras
 }
-function vzFmtCor(id, sec, k, i, val){ // cor de uma série (lista de cores)
+// Lados da borda: t (cima) · d (direita) · b (baixo) · e (esquerda). Padrão = todos; "-" = nenhum
+function vzFmtLado(id, lado){
+  const atual = vzF(edVisual(id), 'fundo', 'lados', 'tdbe').replace('-', '');
+  const novo = 'tdbe'.split('').filter(l => (l === lado) !== atual.includes(l)).join('');
+  vzFmtSet(id, 'fundo', 'lados', novo === 'tdbe' ? null : (novo || '-'));
+  if (novo && !vzF(edVisual(id), 'fundo', 'borda', true)) vzFmtSet(id, 'fundo', 'borda', null); // ligar um lado liga a borda
+  edRenderProps();
+}
+function vzFmtCor(id, sec, k, i, val){ // cor de uma série (lista de cores) — com vários selecionados, a lista do principal vai para todos
   const v = edVisual(id), lista = [...(vzF(v, 'grafico', 'cores', []) || [])];
   lista[i] = val; for (let j = 0; j < lista.length; j++) if (!lista[j]) lista[j] = null;
   while (lista.length && !lista[lista.length - 1]) lista.pop();
@@ -1256,6 +1280,9 @@ function vzEscolherCor(cor){
 }
 function vzHtmlFormatar(v){
   const id = v.id;
+  const selecao = typeof edSelecionados === 'function' ? edSelecionados() : [id];
+  const tiposSel = new Set(selecao.map(x => (edVisual(x) || {}).tipo));
+  const soComuns = selecao.length > 1 && tiposSel.size > 1;
   const temaPaleta = vzTema().paleta;
   // pequenos construtores de controle
   // cor: botão que abre a paleta completa (tema, padrão, recentes, #hex, mais cores)
@@ -1281,7 +1308,11 @@ function vzHtmlFormatar(v){
 
   const formatos = { medida: 'Igual ao da medida', ...VZ_FORMATOS };
   const colFiltro = v.tipo === 'filtro' ? vzColuna((((v.campos || {}).coluna || [])[0] || {}).col) : null;
-  let html = v.tipo === 'filtro' ? grupo('Filtro', 'filtro',
+  let html = '';
+  if (selecao.length > 1) html += edGrupoFaixa('Seleção', `<div class="ed-rib-col"><span class="ed-rib-info"><b>${selecao.length} visuais selecionados.</b><br>${soComuns
+      ? 'Tipos diferentes: aparecem só as opções comuns<br>(texto, título, fundo, borda e sombra).' : 'A formatação vale para todos eles.'}<br>Ctrl+clique tira ou põe um visual.</span></div>`);
+  if (typeof edFaixaPincel === 'function') html += edFaixaPincel(v);
+  if (!soComuns) html += v.tipo === 'filtro' ? grupo('Filtro', 'filtro',
       sel('filtro', 'alcance', 'Vale para', { guia: 'Só esta guia', relatorio: 'Todas as guias' }, 'guia')
     + chk('filtro', 'multipla', 'Permitir várias escolhas', true)
     + sel('filtro', 'estilo', 'Aparência', { normal: 'Caixa com título', compacto: 'Compacto (faixa de filtros)' }, 'normal')
@@ -1292,7 +1323,7 @@ function vzHtmlFormatar(v){
     : grupo('Números', 'numero',
       sel('numero', 'formato', 'Tipo', formatos, 'medida')
     + num('numero', 'casas', 'Casas decimais', 0, 6, 'padrão'));
-  if (v.tipo === 'filtro') { /* filtro: só Filtro, Texto, Título e Fundo */ }
+  if (soComuns || v.tipo === 'filtro') { /* filtro: só Filtro, Texto, Título e Fundo; tipos misturados: só o comum */ }
   // E6
   else if (v.tipo === 'velocimetro') html += grupo('Velocímetro', 'velocimetro',
       num('velocimetro', 'meta', 'Meta fixa', 0, 1e12, 'sem meta') + num('velocimetro', 'maximo', 'Máximo do mostrador', 0, 1e12, 'automático')
@@ -1363,10 +1394,24 @@ function vzHtmlFormatar(v){
     + cor('titulo', 'cor', 'Cor')
     + chk('titulo', 'negrito', 'Negrito', true)
     + sel('titulo', 'alinhar', 'Alinhamento', { esquerda: 'Esquerda', centro: 'Centro', direita: 'Direita' }, 'esquerda'));
-  html += grupo('Fundo e borda', 'fundo',
+  html += grupo('Fundo', 'fundo',
       cor('fundo', 'cor', 'Cor de fundo', 'do tema')
-    + chk('fundo', 'borda', 'Mostrar borda', true)
-    + cor('fundo', 'corBorda', 'Cor da borda', 'do tema'));
+    + num('fundo', 'raio', 'Cantos arredondados (px)', 0, 30, 10));
+  // Lados da borda, como no Excel: cada botão liga/desliga um lado; "Todas" e "Nenhuma" de uma vez
+  const lados = vzF(v, 'fundo', 'lados', 'tdbe'), comBorda = vzF(v, 'fundo', 'borda', true);
+  const ICO_LADO = { t: '<path d="M4 4h16" stroke-width="3"/>', d: '<path d="M20 4v16" stroke-width="3"/>', b: '<path d="M4 20h16" stroke-width="3"/>', e: '<path d="M4 4v16" stroke-width="3"/>' };
+  const ladoBtn = (l, rot) => `<button type="button" class="vz-lado ${comBorda && lados.includes(l) ? 'on' : ''}" title="Borda ${rot}" onclick="vzFmtLado('${id}', '${l}')">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1"><rect x="4" y="4" width="16" height="16" stroke-dasharray="2 2" opacity=".5"/>${ICO_LADO[l]}</svg></button>`;
+  html += grupo('Borda', 'borda',
+      `<div class="vz-fmt-lin"><span>Lados</span><span class="vz-lados">${ladoBtn('t', 'de cima')}${ladoBtn('d', 'da direita')}${ladoBtn('b', 'de baixo')}${ladoBtn('e', 'da esquerda')}
+        <button type="button" class="vz-lado-txt" onclick="vzFmtSet('${id}', 'fundo', 'lados', null); vzFmtSet('${id}', 'fundo', 'borda', null)">Todas</button>
+        <button type="button" class="vz-lado-txt" onclick="vzFmtSet('${id}', 'fundo', 'borda', false)">Nenhuma</button></span></div>`
+    + cor('fundo', 'corBorda', 'Cor da borda', 'do tema')
+    + num('fundo', 'esp', 'Espessura (px)', 1, 8, 1)
+    + sel('fundo', 'estilo', 'Estilo', { solid: 'Contínua', dashed: 'Tracejada', dotted: 'Pontilhada', double: 'Dupla' }, 'solid'));
+  html += grupo('Sombra', 'sombra',
+      sel('fundo', 'sombra', 'Sombra', { '': 'Nenhuma', leve: 'Leve', media: 'Média', forte: 'Forte' }, '')
+    + cor('fundo', 'corSombra', 'Cor da sombra', 'preta'));
   // Comportamento: filtros que este visual ignora e "só aparece quando…" (botão de outro visual)
   const chavesFiltro = []; const vistos = new Set();
   for (const g of ed.def.guias) for (const x of g.visuais) if (x.tipo === 'filtro' && x.id !== v.id) {
@@ -1377,7 +1422,7 @@ function vzHtmlFormatar(v){
   const ignora = vzF(v, 'filtros', 'ignorar', []) || [];
   const alternaveis = edGuiaAtual().visuais.filter(x => x.id !== v.id && VZ_TIPOS_ALTERNAVEIS.includes(x.tipo) && ((x.campos || {}).eixo || []).length > 1);
   const se = (v.formato || {}).visivelSe;
-  html += grupo('Comportamento', 'comportamento',
+  if (!soComuns && selecao.length < 2) html += grupo('Comportamento', 'comportamento',
       (chavesFiltro.length ? `<div class="vz-fmt-lin"><span>Ignorar filtros</span><span class="vz-fmt-ign">${chavesFiltro.map(([k, r]) => `<label><input type="checkbox" ${ignora.includes(k) ? 'checked' : ''} onchange="vzFmtIgnorar('${id}', '${k}', this.checked)"> ${estEsc(r)}</label>`).join('')}</span></div>` : '')
     + `<div class="vz-fmt-lin"><span>Aparece</span><select class="ed-inp vz-fmt-sel" onchange="vzFmtVisivel('${id}', this.value)"><option value="">Sempre</option>
         ${alternaveis.flatMap(x => x.campos.eixo.map((it, i) => [`${x.id}|${i}`, `Só com "${vzRotuloBotaoEixo(it)}" em ${x.titulo}`])).map(([o, r]) => `<option value="${o}" ${se && `${se.visual}|${se.eixo}` === o ? 'selected' : ''}>${estEsc(r)}</option>`).join('')}</select></div>`);

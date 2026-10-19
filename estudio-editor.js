@@ -250,6 +250,25 @@ function edMontarTela(){
   ed.obsGrade = new ResizeObserver(() => edAjustarProporcao());
   ed.obsGrade.observe(edEl('ed-grade'));
   edAjustarProporcao();
+  // Vários selecionados: arrastar um leva os outros junto (mesmo deslocamento, mantendo o desenho)
+  ed.grade.on('dragstart', (e, el) => {
+    ed.talvezUnico = null;
+    const id = el.gridstackNode && el.gridstackNode.id, sel = edSelecionados();
+    ed.arrasto = sel.length > 1 && sel.includes(id)
+      ? { id, x0: el.gridstackNode.x, y0: el.gridstackNode.y, outros: sel.filter(x => x !== id).map(x => { const v = edVisual(x); return { id: x, x: v.x, y: v.y, w: v.w }; }) }
+      : null;
+  });
+  ed.grade.on('dragstop', (e, el) => {
+    const a = ed.arrasto; ed.arrasto = null;
+    if (!a) return;
+    setTimeout(() => {
+      const n = el.gridstackNode, dx = n.x - a.x0, dy = n.y - a.y0;
+      if (!dx && !dy) return;
+      const mapa = {};
+      a.outros.forEach(o => { mapa[o.id] = { x: Math.min(ED_COLUNAS - o.w, Math.max(0, o.x + dx)), y: Math.max(0, o.y + dy) }; });
+      edPosicionar(mapa, true); // entra no mesmo "desfazer" do arrasto
+    }, 0);
+  });
   ed.grade.on('change', (e, itens) => {
     if (ed.carregandoGrade || !Array.isArray(itens) || !itens.length) return; // a grade às vezes avisa sem itens (ex.: visual escondido)
     edMudar(() => itens.forEach(it => { const v = edVisual(it.id); if (v) Object.assign(v, { x: it.x, y: it.y, w: it.w, h: it.h }); }), true);
@@ -463,7 +482,16 @@ function edAplicarMoldura(id){
   const f = (sec, k, p) => vzF(v, sec, k, p);
   // variáveis CSS (e não cor direta) para a borda de "selecionado" continuar aparecendo por cima
   el.style.setProperty('--vis-fundo', f('fundo', 'cor', '') || null);
-  el.style.setProperty('--vis-borda', f('fundo', 'borda', true) ? (f('fundo', 'corBorda', '') || null) : 'transparent');
+  // Borda: lados (t d b e), espessura, estilo e cor; sem borda = espessura 0
+  const borda = f('fundo', 'borda', true), lados = f('fundo', 'lados', 'tdbe'), esp = f('fundo', 'esp', 1);
+  [['t', '--vis-bt'], ['d', '--vis-bd'], ['b', '--vis-bb'], ['e', '--vis-be']].forEach(([l, var_]) => el.style.setProperty(var_, borda && lados.includes(l) ? esp + 'px' : '0px'));
+  el.style.setProperty('--vis-borda', f('fundo', 'corBorda', '') || null);
+  el.style.setProperty('--vis-bs', f('fundo', 'estilo', '') || null);
+  el.style.setProperty('--vis-raio', f('fundo', 'raio', null) != null ? f('fundo', 'raio') + 'px' : null);
+  // Sombra: intensidade + cor (padrão: preta)
+  const sombra = { leve: '0 1px 4px', media: '0 4px 14px', forte: '0 10px 30px' }[f('fundo', 'sombra', '')];
+  const corS = f('fundo', 'corSombra', '');
+  el.style.setProperty('--vis-sombra', sombra ? `${sombra} ${corS && corS !== 'transparent' ? `color-mix(in srgb, ${corS} 45%, transparent)` : 'rgba(0,0,0,.28)'}` : null);
   el.classList.toggle('sem-titulo', !f('titulo', 'mostrar', true));
   const cab = el.querySelector('.ed-vis-cab'), tit = el.querySelector('.ed-vis-titulo');
   cab.style.justifyContent = { centro: 'center', direita: 'flex-end' }[f('titulo', 'alinhar', '')] || '';
@@ -481,7 +509,15 @@ function edAdicionarNaGrade(v){
   const el = ed.grade.addWidget({ id: v.id, x: v.x, y: v.y, w: v.w, h: v.h, minW: 2 * ED_F, minH: (v.tipo === 'filtro' ? 1 : 2) * ED_F });
   el.querySelector('.grid-stack-item-content').innerHTML = edConteudoVisual(v);
   edAplicarMoldura(v.id);
-  el.addEventListener('mousedown', ev => { if (!ev.target.closest('.ui-resizable-handle')) edSelecionar(v.id); });
+  el.addEventListener('mousedown', ev => {
+    if (ev.target.closest('.ui-resizable-handle')) return;
+    if (ed.pincel && !ed.leitura) { edAplicarPincel(v.id); return; }
+    const somar = ev.ctrlKey || ev.metaKey || ev.shiftKey;
+    // Clique (sem Ctrl) num visual de uma seleção múltipla: mantém o grupo (para arrastar junto); se não arrastar, fica só ele
+    if (!somar && edSelecionados().length > 1 && edSelecionados().includes(v.id)) { ed.talvezUnico = v.id; edMarcarPrincipal(v.id); return; }
+    edSelecionar(v.id, somar);
+  });
+  el.addEventListener('mouseup', () => { if (ed.talvezUnico === v.id) { ed.talvezUnico = null; edSelecionar(v.id); } });
   vzRender(v.id);
   return el;
 }
@@ -534,22 +570,183 @@ function edInserirVisual(tipo, cel){
   ed.carregandoGrade = true; edAdicionarNaGrade(v); ed.carregandoGrade = false;
   edSelecionar(v.id);
 }
-function edSelecionar(id){
+// Seleção: ed.sel = o visual "principal" (a faixa mostra os campos dele); ed.selMulti = todos os selecionados (Ctrl+clique)
+const edSelecionados = () => !ed.sel ? [] : (ed.selMulti && ed.selMulti.length > 1 && ed.selMulti.includes(ed.sel) ? ed.selMulti.slice() : [ed.sel]);
+function edSelecionar(id, somar){
+  let lista;
+  if (somar && id) {
+    lista = edSelecionados();
+    if (lista.includes(id)) { lista = lista.filter(x => x !== id); id = lista[lista.length - 1] || null; } // Ctrl+clique de novo tira
+    else lista.push(id);
+  } else lista = id ? [id] : [];
   // Selecionou um visual: a faixa vai para a aba Visual (campos), a não ser que já esteja numa aba do visual
-  if (id && !ED_ABAS_VISUAL.some(a => a[0] === ed.aba)) ed.aba = 'visual';
+  if (id && !ED_ABAS_VISUAL.some(a => a[0] === ed.aba)) ed.aba = lista.length > 1 ? 'formatar' : 'visual';
+  else if (lista.length > 1 && ed.aba === 'visual') ed.aba = 'formatar'; // vários selecionados: a aba útil é Formatar (os campos são de um visual só)
+  ed.selMulti = lista;
   ed.sel = id;
-  document.querySelectorAll('#ed-grade .ed-vis').forEach(el => el.classList.toggle('sel', el.dataset.id === id));
+  edMarcarSelecao();
   edRenderProps();
 }
+function edMarcarSelecao(){
+  const lista = edSelecionados();
+  document.querySelectorAll('#ed-grade .ed-vis').forEach(el => {
+    el.classList.toggle('sel', lista.includes(el.dataset.id));
+    el.classList.toggle('sel-principal', lista.length > 1 && el.dataset.id === ed.sel);
+  });
+}
+function edMarcarPrincipal(id){ ed.sel = id; edMarcarSelecao(); edRenderProps(); }
+function edSelecionarTudo(){
+  const ids = edGuiaAtual().visuais.map(v => v.id);
+  if (!ids.length) return;
+  ed.selMulti = ids; ed.sel = ids[0];
+  if (!ED_ABAS_VISUAL.some(a => a[0] === ed.aba)) ed.aba = ids.length > 1 ? 'formatar' : 'visual';
+  edMarcarSelecao(); edRenderProps();
+}
+
+/* ---------------- organizar: posição, alinhar, distribuir (na grade de 96 colunas) ---------------- */
+const edItemEl = id => document.querySelector(`#ed-grade .grid-stack-item[gs-id="${id}"]`);
+// Muda a posição/tamanho de vários visuais de uma vez (um só "desfazer"; juntar = soma ao último, ex.: arrasto em grupo)
+function edPosicionar(mapa, juntar){
+  const aplicar = () => Object.entries(mapa).forEach(([id, p]) => { const v = edVisual(id); if (v) Object.assign(v, p); });
+  if (juntar) aplicar(); else edMudar(aplicar);
+  ed.carregandoGrade = true;
+  ed.grade.batchUpdate();
+  Object.entries(mapa).forEach(([id, p]) => { const el = edItemEl(id); if (el) ed.grade.update(el, p); });
+  ed.grade.batchUpdate(false);
+  ed.carregandoGrade = false;
+  // A grade não deixa um visual em cima do outro: se empurrou algum, o desenho guarda onde ele foi parar
+  (ed.grade.engine.nodes || []).forEach(n => { const v = edVisual(n.id); if (v) Object.assign(v, { x: n.x, y: n.y, w: n.w, h: n.h }); });
+  ed.ultimo = JSON.stringify(ed.def); ed.sujo = true;
+  edAtualizarBotoes(); edRenderProps();
+}
+// Alinhar: com 1 visual, em relação à página; com vários, em relação ao conjunto (como no PowerPoint)
+function edAlinhar(modo){
+  const vs = edSelecionados().map(edVisual).filter(Boolean);
+  if (!vs.length) return;
+  const um = vs.length === 1;
+  const minX = um ? 0 : Math.min(...vs.map(v => v.x)), maxX = um ? ED_COLUNAS : Math.max(...vs.map(v => v.x + v.w));
+  const minY = Math.min(...vs.map(v => v.y)), maxY = Math.max(...vs.map(v => v.y + v.h));
+  const mapa = {};
+  vs.forEach(v => {
+    let { x, y } = v;
+    if (modo === 'esquerda') x = minX;
+    else if (modo === 'direita') x = maxX - v.w;
+    else if (modo === 'centro') x = Math.round((minX + maxX) / 2 - v.w / 2);
+    else if (modo === 'topo') y = um ? 0 : minY;
+    else if (modo === 'base') y = maxY - v.h;
+    else if (modo === 'meio') y = Math.round((minY + maxY) / 2 - v.h / 2);
+    mapa[v.id] = { x: Math.min(ED_COLUNAS - v.w, Math.max(0, x)), y: Math.max(0, y) };
+  });
+  edPosicionar(mapa);
+}
+// Distribuir: espaço igual entre os visuais (do primeiro ao último, na horizontal ou na vertical)
+function edDistribuir(eixo){
+  const vs = edSelecionados().map(edVisual).filter(Boolean);
+  if (vs.length < 3) return showToast('Selecione 3 ou mais visuais para distribuir.', 'erro');
+  const [p, t] = eixo === 'h' ? ['x', 'w'] : ['y', 'h'];
+  vs.sort((a, b) => a[p] - b[p]);
+  const ini = vs[0][p], fim = Math.max(...vs.map(v => v[p] + v[t]));
+  const vao = (fim - ini - vs.reduce((s, v) => s + v[t], 0)) / (vs.length - 1);
+  const mapa = {}; let pos = ini;
+  vs.forEach(v => { mapa[v.id] = { [p]: Math.max(0, Math.round(pos)) }; pos += v[t] + Math.max(0, vao); });
+  edPosicionar(mapa);
+}
+// Mesma largura / mesma altura do visual principal
+function edMesmoTamanho(lado){
+  const ids = edSelecionados(), base = edVisual(ed.sel);
+  if (ids.length < 2 || !base) return;
+  const mapa = {};
+  ids.forEach(id => { const v = edVisual(id); mapa[id] = lado === 'w' ? { w: base.w, x: Math.min(v.x, ED_COLUNAS - base.w) } : { h: base.h }; });
+  edPosicionar(mapa);
+}
+// Posição exata do visual principal (coluna/linha começam em 1 na tela)
+function edPosicaoExata(campo, valor){
+  const v = edVisual(ed.sel); if (!v) return;
+  let n = Math.round(Number(valor)); if (!Number.isFinite(n)) return edRenderProps();
+  const p = {};
+  if (campo === 'x') p.x = Math.min(ED_COLUNAS - v.w, Math.max(0, n - 1));
+  if (campo === 'y') p.y = Math.max(0, n - 1);
+  if (campo === 'w') p.w = Math.min(ED_COLUNAS - v.x, Math.max(2 * ED_F, n));
+  if (campo === 'h') p.h = Math.max((v.tipo === 'filtro' ? 1 : 2) * ED_F, n);
+  edPosicionar({ [v.id]: p });
+}
+// Setas do teclado: move a seleção (Shift = passo maior)
+function edMoverSelecao(dx, dy){
+  const vs = edSelecionados().map(edVisual).filter(Boolean);
+  if (!vs.length) return;
+  const mapa = {};
+  vs.forEach(v => { mapa[v.id] = { x: Math.min(ED_COLUNAS - v.w, Math.max(0, v.x + dx)), y: Math.max(0, v.y + dy) }; });
+  edPosicionar(mapa);
+}
+
+/* ---------------- copiar e colar (vários de uma vez; vale entre guias e entre relatórios) ---------------- */
+const ED_AREA = 'dashbi-estudio-copia';
+function edCopiar(){
+  const ids = edSelecionados();
+  if (!ids.length) return;
+  const visuais = ids.map(id => JSON.parse(JSON.stringify(edVisual(id))));
+  ed.area = { base: ed.base && ed.base.id, visuais };
+  try { localStorage.setItem(ED_AREA, JSON.stringify(ed.area)); } catch (e) {}
+  showToast(`${visuais.length} visual(is) copiado(s). Ctrl+V cola (também em outra guia ou relatório).`);
+}
+function edColar(){
+  let area = ed.area;
+  if (!area) { try { area = JSON.parse(localStorage.getItem(ED_AREA) || 'null'); } catch (e) {} }
+  if (!area || !area.visuais || !area.visuais.length) return showToast('Nada copiado ainda (selecione e use Ctrl+C).', 'erro');
+  const outraBase = area.base !== (ed.base && ed.base.id);
+  // Cola abaixo de tudo o que já está na guia, mantendo o desenho do grupo
+  const fundo = Math.max(0, ...edGuiaAtual().visuais.map(v => v.y + v.h));
+  const topo = Math.min(...area.visuais.map(v => v.y));
+  const novos = area.visuais.map(o => {
+    const v = { ...JSON.parse(JSON.stringify(o)), id: edNovoId('v'), y: o.y - topo + fundo };
+    if (outraBase) delete v.campos; // campos de outra base não existem aqui: fica a formatação
+    if (v.formato) delete v.formato.visivelSe;
+    return v;
+  });
+  edMudar(() => edGuiaAtual().visuais.push(...novos));
+  ed.carregandoGrade = true; novos.forEach(edAdicionarNaGrade); ed.carregandoGrade = false;
+  ed.selMulti = novos.map(v => v.id); ed.sel = novos[0].id;
+  edMarcarSelecao(); edRenderProps();
+  const el = edItemEl(novos[0].id); if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  showToast(`${novos.length} visual(is) colado(s)${outraBase ? ' (de outra base: só a formatação; arraste os campos de novo)' : ''}.`);
+}
+
+/* ---------------- pincel de formatação ----------------
+   Copia a formatação do visual selecionado para o próximo visual clicado. Entre tipos diferentes vai o que é comum
+   (título, fundo, borda, sombra, texto); entre visuais do mesmo tipo vai tudo. Duplo clique no pincel = fica ligado. */
+const ED_FMT_COMUNS = ['titulo', 'fundo', 'texto'];
+function edPincel(fixo){
+  if (ed.pincel) return edPincelFim();
+  const v = ed.sel && edVisual(ed.sel); if (!v) return;
+  ed.pincel = { de: v.id, tipo: v.tipo, formato: JSON.parse(JSON.stringify(v.formato || {})), fixo: !!fixo };
+  edEl('ed-overlay').classList.add('ed-pincel-ativo');
+  showToast(fixo ? 'Pincel fixo: clique em cada visual que vai receber a formatação. Esc desliga.' : 'Pincel: clique no visual que vai receber a formatação (Esc cancela).', 'sucesso', 4000);
+  edRenderFaixa();
+}
+function edPincelFim(){ ed.pincel = null; const ov = edEl('ed-overlay'); if (ov) ov.classList.remove('ed-pincel-ativo'); edRenderFaixa(); }
+function edAplicarPincel(id){
+  const p = ed.pincel; if (!p || id === p.de) return;
+  edMudar(() => {
+    const alvo = edVisual(id), f = alvo.formato = alvo.formato || {};
+    const secoes = alvo.tipo === p.tipo ? [...new Set([...Object.keys(p.formato), ...Object.keys(f)])].filter(k => !['filtros', 'visivelSe'].includes(k)) : ED_FMT_COMUNS;
+    secoes.forEach(k => { if (p.formato[k]) f[k] = JSON.parse(JSON.stringify(p.formato[k])); else delete f[k]; });
+    if (!Object.keys(f).length) delete alvo.formato;
+  });
+  edRedesenharVisual(id);
+  if (!p.fixo) edPincelFim();
+}
 function edExcluirVisual(id){
-  const v0 = edVisual(id), chaveFiltro = v0 && v0.tipo === 'filtro' ? vzChaveFiltro(v0) : null;
-  edMudar(() => { const g = edGuiaAtual(); g.visuais = g.visuais.filter(v => v.id !== id); });
-  const el = document.querySelector(`#ed-grade .grid-stack-item[gs-id="${id}"]`);
-  ed.carregandoGrade = true; if (el) ed.grade.removeWidget(el); ed.carregandoGrade = false;
+  const ids = edSelecionados().includes(id) ? edSelecionados() : [id]; // vários selecionados: exclui todos
+  const chaves = ids.map(edVisual).filter(v => v && v.tipo === 'filtro').map(vzChaveFiltro);
+  edMudar(() => { const g = edGuiaAtual(); g.visuais = g.visuais.filter(v => !ids.includes(v.id)); });
+  ed.carregandoGrade = true; ids.forEach(i => { const el = edItemEl(i); if (el) ed.grade.removeWidget(el); }); ed.carregandoGrade = false;
   edSelecionar(null);
-  if (ed.filtros && ed.filtros[chaveFiltro]) { delete ed.filtros[chaveFiltro]; vzAplicarFiltros(); } // era um filtro em uso
+  let mudou = false;
+  chaves.forEach(k => { if (ed.filtros && ed.filtros[k]) { delete ed.filtros[k]; mudou = true; } }); // eram filtros em uso
+  if (mudou) vzAplicarFiltros();
 }
 function edDuplicarVisual(id){
+  if (edSelecionados().length > 1 && edSelecionados().includes(id)) { const area = ed.area; edCopiar(); edColar(); ed.area = area; return; }
   const o = edVisual(id);
   const v = { ...JSON.parse(JSON.stringify(o)), id: edNovoId('v'), titulo: (o.titulo || '') + ' (CÓPIA)' };
   let achou = false;
@@ -573,6 +770,20 @@ const ED_ICO = {
   painel: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>',
   publicar: '<path d="M12 15V3M7 8l5-5 5 5"/><path d="M4 15v5h16v-5"/>',
   zoom: '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M8 11h6M11 8v6"/>',
+  copiar: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a1 1 0 0 1 1-1h10"/>',
+  colar: '<rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4V3h6v1M9 11h6M9 15h4"/>',
+  tudo: '<rect x="3" y="3" width="18" height="18" rx="2" stroke-dasharray="3 2"/><path d="M8 12l3 3 5-6"/>',
+  pincel: '<path d="M4 4h12v5H4z"/><path d="M16 6h3v5h-8v3"/><path d="M10 14h2v7h-2z"/>',
+  alEsq: '<path d="M4 3v18"/><rect x="7" y="6" width="11" height="4" rx="1"/><rect x="7" y="14" width="7" height="4" rx="1"/>',
+  alCentro: '<path d="M12 3v18"/><rect x="5" y="6" width="14" height="4" rx="1"/><rect x="8" y="14" width="8" height="4" rx="1"/>',
+  alDir: '<path d="M20 3v18"/><rect x="6" y="6" width="11" height="4" rx="1"/><rect x="10" y="14" width="7" height="4" rx="1"/>',
+  alTopo: '<path d="M3 4h18"/><rect x="6" y="7" width="4" height="11" rx="1"/><rect x="14" y="7" width="4" height="7" rx="1"/>',
+  alMeio: '<path d="M3 12h18"/><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="8" width="4" height="8" rx="1"/>',
+  alBase: '<path d="M3 20h18"/><rect x="6" y="6" width="4" height="11" rx="1"/><rect x="14" y="10" width="4" height="7" rx="1"/>',
+  distH: '<path d="M3 4v16M21 4v16"/><rect x="9" y="7" width="6" height="10" rx="1"/>',
+  distV: '<path d="M4 3h16M4 21h16"/><rect x="7" y="9" width="10" height="6" rx="1"/>',
+  mesmaL: '<path d="M4 12h16M7 9l-3 3 3 3M17 9l3 3-3 3"/>',
+  mesmaA: '<path d="M12 4v16M9 7l3-3 3 3M9 17l3 3 3-3"/>',
 };
 // Nome antigo mantido: várias partes do código pedem "redesenhe as propriedades" depois de uma mudança
 function edRenderProps(){ edRenderFaixa(); }
@@ -592,7 +803,9 @@ function edRenderFaixa(){
 function edFaixaInicio(v){
   const g = edGuiaAtual(), semSel = v ? '' : 'disabled title="Selecione um visual na tela"';
   return edGrupoFaixa('Visual', edBotaoGrande(ED_ICO.novo, 'Novo visual', 'edMenuVisual(null)')
-      + `<div class="ed-rib-col">${edBotaoPeq(ED_ICO.duplicar, 'Duplicar', v ? `edDuplicarVisual('${v.id}')` : '', semSel)}${edBotaoPeq(ED_ICO.excluir, 'Excluir', v ? `edExcluirVisual('${v.id}')` : '', semSel)}</div>`)
+      + `<div class="ed-rib-col">${edBotaoPeq(ED_ICO.duplicar, 'Duplicar', v ? `edDuplicarVisual('${v.id}')` : '', semSel)}${edBotaoPeq(ED_ICO.excluir, 'Excluir', v ? `edExcluirVisual('${v.id}')` : '', semSel)}</div>
+        <div class="ed-rib-col">${edBotaoPeq(ED_ICO.copiar, 'Copiar', 'edCopiar()', semSel + ' title="Ctrl+C"')}${edBotaoPeq(ED_ICO.colar, 'Colar', 'edColar()', 'title="Ctrl+V"')}${edBotaoPeq(ED_ICO.tudo, 'Selecionar tudo', 'edSelecionarTudo()', 'title="Ctrl+A"')}</div>`)
+    + edFaixaPincel(v) + edFaixaOrganizar()
     + edGrupoFaixa('Guia', `<div class="ed-rib-col">
         <input id="ed-guia-nome" class="ed-inp caixa-alta ed-rib-inp" type="text" value="${estEsc(g.nome)}" title="Nome da guia aberta" onchange="edRenomearGuia('${g.id}', this.value)">
         <div class="ed-rib-lin">${edBotaoPeq(ED_ICO.novo, 'Nova guia', 'edNovaGuia()')}${edBotaoPeq(ED_ICO.excluir, 'Excluir guia', `edExcluirGuia('${g.id}')`, ed.def.guias.length === 1 ? 'disabled' : '')}</div></div>`)
@@ -701,6 +914,27 @@ function edDefinirMeta(txt){
   ed.meta = ed.def.meta ?? null;
   edAtualizarMeta(); vzRenderTodos();
 }
+// Pincel de formatação (como no Excel): clique = uma vez; duplo clique = fica ligado
+function edFaixaPincel(v){
+  return edGrupoFaixa('Formatação', `<button class="ed-rib-btn ${ed.pincel ? 'ativo' : ''}" onclick="edPincel()" ondblclick="edPincelFim(); edPincel(true)" ${v || ed.pincel ? '' : 'disabled'}
+      title="Pincel: copia a formatação do visual selecionado para o próximo que você clicar (duplo clique = fica ligado; Esc desliga)">${edIcone(ED_ICO.pincel, 22)}<span>${ed.pincel ? 'Pincel ligado' : 'Pincel'}</span></button>`);
+}
+// Organizar: alinhar, distribuir, mesmo tamanho e posição exata
+function edFaixaOrganizar(){
+  const ids = edSelecionados(), n = ids.length, v = ed.sel ? edVisual(ed.sel) : null;
+  const b = (ico, rot, acao, min, dica) => `<button class="ed-rib-ico" onclick="${acao}" ${n >= min ? '' : 'disabled'} title="${dica}">${edIcone(ico, 16)}<span class="sr">${rot}</span></button>`;
+  const alinhar = `<div class="ed-rib-lin">
+      ${b(ED_ICO.alEsq, 'Esquerda', "edAlinhar('esquerda')", 1, 'Alinhar à esquerda')}${b(ED_ICO.alCentro, 'Centro', "edAlinhar('centro')", 1, 'Centralizar na horizontal')}${b(ED_ICO.alDir, 'Direita', "edAlinhar('direita')", 1, 'Alinhar à direita')}
+      ${b(ED_ICO.alTopo, 'Topo', "edAlinhar('topo')", 1, 'Alinhar em cima')}${b(ED_ICO.alMeio, 'Meio', "edAlinhar('meio')", 2, 'Centralizar na vertical')}${b(ED_ICO.alBase, 'Base', "edAlinhar('base')", 2, 'Alinhar embaixo')}</div>
+    <div class="ed-rib-lin">
+      ${b(ED_ICO.distH, 'Distribuir H', "edDistribuir('h')", 3, 'Distribuir na horizontal (espaço igual)')}${b(ED_ICO.distV, 'Distribuir V', "edDistribuir('v')", 3, 'Distribuir na vertical (espaço igual)')}
+      ${b(ED_ICO.mesmaL, 'Mesma largura', "edMesmoTamanho('w')", 2, 'Mesma largura do visual principal')}${b(ED_ICO.mesmaA, 'Mesma altura', "edMesmoTamanho('h')", 2, 'Mesma altura do visual principal')}</div>`;
+  const campo = (k, rot, val, dica) => `<label class="ed-pos" title="${dica}"><span>${rot}</span><input type="number" class="ed-inp" value="${val}" ${v ? '' : 'disabled'} onchange="edPosicaoExata('${k}', this.value)"></label>`;
+  const posicao = `<div class="ed-rib-lin">${campo('x', 'Col.', v ? v.x + 1 : '', 'Coluna onde começa (1 a ' + ED_COLUNAS + ')')}${campo('y', 'Lin.', v ? v.y + 1 : '', 'Linha onde começa')}</div>
+    <div class="ed-rib-lin">${campo('w', 'Larg.', v ? v.w : '', 'Largura em colunas (a página tem ' + ED_COLUNAS + ')')}${campo('h', 'Alt.', v ? v.h : '', 'Altura em linhas')}</div>`;
+  return edGrupoFaixa(n > 1 ? `Organizar · ${n} selecionados` : 'Organizar', `<div class="ed-rib-col">${alinhar}</div>`)
+    + edGrupoFaixa(n > 1 ? 'Posição do principal' : 'Posição e tamanho', `<div class="ed-rib-col">${posicao}</div>`);
+}
 function edFaixaVisual(v){
   return edGrupoFaixa('Visual', `<div class="ed-rib-col">
         <input id="ed-vis-titulo" class="ed-inp caixa-alta ed-rib-inp" type="text" value="${estEsc(v.titulo)}" title="Título do visual" oninput="edTituloAoVivo('${v.id}', this.value)" onchange="edMudar(() => { edVisual('${v.id}').titulo = this.value.trim().toUpperCase(); })">
@@ -709,7 +943,8 @@ function edFaixaVisual(v){
         </select></div>`)
     + edGrupoFaixa('Campos — arraste colunas e medidas do painel Dados para cá ou para o visual', `<div class="ed-slots">${vzHtmlSlots(v)}</div>`, 'ed-rib-campos')
     + edGrupoFaixa('Ações', `<div class="ed-rib-col">${edBotaoPeq(ED_ICO.duplicar, 'Duplicar', `edDuplicarVisual('${v.id}')`)}${edBotaoPeq(ED_ICO.excluir, 'Excluir', `edExcluirVisual('${v.id}')`)}
-        <span class="ed-rib-info">coluna ${v.x + 1}, linha ${v.y + 1} · ${v.w} × ${v.h}</span></div>`);
+        <span class="ed-rib-info">coluna ${v.x + 1}, linha ${v.y + 1} · ${v.w} × ${v.h} (a página tem ${ED_COLUNAS} colunas)</span></div>`)
+    + edFaixaPincel(v) + edFaixaOrganizar();
 }
 // Menu das guias na tela do usuário: abas no topo (padrão) ou lista à esquerda
 function edMudarMenu(pos){
@@ -845,6 +1080,7 @@ function edTeclas(e){
   if (!edEl('ed-overlay')) return;
   const digitando = ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement && document.activeElement.tagName);
   if (e.key === 'Escape') {
+    if (ed.pincel) { edPincelFim(); return; }
     if (edEl('vz-filtro-pop')) { vzFecharListaFiltro(); return; }
     if (edEl('ed-pub') || edEl('vz-janela')) return; // janelas abertas fecham pelos botões
     edEl('ed-menu').classList.add('hidden');
@@ -856,4 +1092,14 @@ function edTeclas(e){
   else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') { e.preventDefault(); edRefazer(); }
   else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); edSalvar(); }
   else if ((e.key === 'Delete' || e.key === 'Backspace') && ed.sel) { e.preventDefault(); edExcluirVisual(ed.sel); }
+  else if (ed.leitura) return;
+  else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c' && ed.sel) { e.preventDefault(); edCopiar(); }
+  else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') { e.preventDefault(); edColar(); }
+  else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd' && ed.sel) { e.preventDefault(); edDuplicarVisual(ed.sel); }
+  else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') { e.preventDefault(); edSelecionarTudo(); }
+  else if (ed.sel && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+    e.preventDefault();
+    const p = e.shiftKey ? ED_F : 1; // Shift: passo maior
+    edMoverSelecao(e.key === 'ArrowLeft' ? -p : e.key === 'ArrowRight' ? p : 0, e.key === 'ArrowUp' ? -p : e.key === 'ArrowDown' ? p : 0);
+  }
 }
