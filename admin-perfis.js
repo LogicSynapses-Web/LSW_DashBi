@@ -24,14 +24,15 @@ const AP_ARVORE = [
         { chave: 'quadro.solicitar', rotulo: 'Solicitar ajuste (botão no cartão da pessoa)' },
       ] },
     ] },
-    { chave: 'quadro.painel', rotulo: 'Painel do mês', filhos: [
-      { chave: 'quadro.estudio', rotulo: 'Enviar ao Estúdio (base QUADRO e Painel do Quadro)' },
+    { chave: 'quadro.painel', rotulo: 'Painel do mês (abre o PAINEL DO QUADRO do Estúdio, mesmo com o card oculto)', filhos: [
+      { chave: 'quadro.estudio', rotulo: 'Preparar no Estúdio (base QUADRO ligada ao Quadro e Painel do Quadro)' },
     ] },
     { chave: 'quadro.solicitacoes', rotulo: 'Solicitações: ver a lista de tickets', filhos: [
       { chave: 'quadro.analisar', rotulo: 'Analisar e tratar tickets (andamento, aprovar, reprovar, cancelar, divergência com a carga)' },
     ] },
     { chave: 'quadro.cargas', rotulo: 'Cargas: carregar as bases DPO e WFM' },
     { chave: 'quadro.vinculos', rotulo: 'Tratar a base: vínculos DPO × WFM (confirmar, planilha de vínculos)' },
+    { chave: 'quadro.escalas', rotulo: 'Escalas: dias e pesos de cada escala, cargas horárias e horas por dia' },
   ] },
   { chave: 'estudio', rotulo: 'Estúdio', filhos: [
     { chave: 'estudio.bases', rotulo: 'Bases de dados (criar e carregar)' },

@@ -212,6 +212,8 @@ const LSW_DEMO = (() => {
   const acessoPublicado = req => {
     if (tem(req.usuario, 'relatorios.publicar') || tem(req.usuario, 'estudio.relatorios')) return;
     const id = +req.params.id;
+    // Quadro › Painel: quem vê o painel abre o relatório feito sobre a base ligada ao Quadro (mesmo com o card oculto)
+    if (tem(req.usuario, 'quadro.painel')) { const rel = db.estudio_relatorios.find(x => x.id === id), b = rel && db.estudio_bases.find(x => x.id === rel.base_id); if (b && b.fonte === 'quadro') return; }
     if (!db.relatorios.some(x => x.estudio_relatorio_id === id && x.visivel && x.ativo && daOperacao(x, req.usuario))) return erro(403, 'Este relatório não está disponível.');
   };
   const perfilPublico = p => ({ id: p.id, matricula: p.matricula, nome: p.nome, email: p.email, perfil: p.perfil, ativo: p.ativo, criado_em: p.criado_em, troca_senha_obrigatoria: p.troca_senha_obrigatoria, reset_solicitado_em: p.reset_solicitado_em, perfil_acesso_id: p.perfil_acesso_id || null, operacao_id: p.operacao_id || null });
@@ -456,7 +458,7 @@ const LSW_DEMO = (() => {
     if (['dpo', 'wfm', 'cargas'].includes(loja)) return tem(u, 'quadro.cargas') ? null : nega;
     if (loja === 'vinculos') return tem(u, 'quadro.vinculos') ? null : nega;
     if (['funcionarios', 'historico', 'fotos'].includes(loja)) return refaz(u) ? null : nega;
-    if (loja === 'config') return itens.every(i => temAlgum(u, ...({ modelos: ['admin.tickets'], clientes: ['quadro.cargas'], pendentes: ['quadro.cargas', 'quadro.vinculos', 'quadro.analisar'], estudio: ['quadro.estudio'], migrado: ['quadro.cargas'] }[i && i.chave] || ['*']))) ? null : nega;
+    if (loja === 'config') return itens.every(i => temAlgum(u, ...({ modelos: ['admin.tickets'], clientes: ['quadro.cargas'], pendentes: ['quadro.cargas', 'quadro.vinculos', 'quadro.analisar'], estudio: ['quadro.estudio'], migrado: ['quadro.cargas'], escalas: ['quadro.escalas'] }[i && i.chave] || ['*']))) ? null : nega;
     if (loja === 'tickets') return refaz(u) || (tem(u, 'quadro.solicitar') && itens.every(i => i && !i.id && i.status === 'aberto')) ? null : nega;
     if (loja === 'anexos') return refaz(u) || tem(u, 'quadro.solicitar') ? null : nega;
     return 'Gaveta desconhecida: ' + loja;
@@ -497,6 +499,31 @@ const LSW_DEMO = (() => {
     if (!QD_CAMPO[loja] || !Array.isArray(chaves) || !chaves.length) return erro(400, 'Informe a gaveta e as chaves.');
     if (!(loja === 'vinculos' ? tem(req.usuario, 'quadro.vinculos') : tem(req.usuario, '*'))) return erro(403, 'Acesso negado. O seu perfil não tem permissão para esta ação.');
     let n = 0; chaves.forEach(c => { if (b[loja + '|' + c]) { delete b[loja + '|' + c]; n++; } }); salvar(); return r(200, { removidos: n });
+  });
+
+  // Base do Estúdio "ligada ao Quadro" (rotas 44–46 do servidor real): o relatório lê o Quadro, sem arquivo
+  const quadroParaEstudio = () => {
+    const b = qdBanco(), da = l => Object.keys(b).filter(k => k.startsWith(l + '|')).map(k => b[k]);
+    const datas = da('cargas').filter(c => c.tipo === 'dpo').map(c => c.data_base).sort(), cfg = b['config|escalas'];
+    return { data_base: datas[datas.length - 1] || null, escalas: cfg ? cfg.valor : null, funcionarios: da('funcionarios').filter(f => !f.fora_base).map(f => JSON.parse(JSON.stringify(f))) };
+  };
+  rota('GET', '/api/estudio/quadro/dados', auth, pode('estudio.bases', 'estudio.relatorios', 'quadro.estudio'), () => r(200, quadroParaEstudio()));
+  rota('GET', '/api/estudio/publicados/:id/quadro', auth, acessoPublicado, req => {
+    const rel = db.estudio_relatorios.find(x => x.id === +req.params.id); if (!rel) return erro(404, 'Relatório não encontrado.');
+    const b = db.estudio_bases.find(x => x.id === rel.base_id); if (!b || b.fonte !== 'quadro') return erro(403, 'A base deste relatório não é a do Quadro.');
+    return r(200, quadroParaEstudio());
+  });
+  rota('POST', '/api/estudio/quadro/base', auth, pode('quadro.estudio'), req => {
+    const { nome, descricao, colunas, coluna_data, chave } = req.body;
+    if (!nome || !Array.isArray(colunas) || !colunas.length) return erro(400, 'Informe o nome e as colunas da base.');
+    const n = String(nome).trim().toUpperCase(), atual = db.estudio_bases.find(x => x.nome === n);
+    if (atual) {
+      if (atual.fonte === 'quadro') { atual.colunas = colunas.map(c => ({ ...c, ...((atual.colunas || []).find(x => x.nome === c.nome) || {}) })); salvar(); return r(200, { base: atual, ligada: false }); }
+      if (atual.fonte !== 'arquivo') return erro(409, `A base ${n} já existe com outra origem.`);
+      Object.assign(atual, { fonte: 'quadro', colunas, descricao: descricao ? String(descricao).trim().toUpperCase() : atual.descricao, atualizado_em: agora() }); salvar(); return r(200, { base: atual, ligada: true });
+    }
+    const base = { id: db.seq.base++, nome: n, descricao: descricao ? String(descricao).trim().toUpperCase() : null, colunas, coluna_data, chave: chave && chave.length ? chave : null, medidas: [], fonte: 'quadro', criado_por: req.usuario.id, criado_em: agora(), atualizado_em: agora() };
+    db.estudio_bases.push(base); salvar(); return r(201, { base, ligada: true });
   });
 
   /* ---------- atendimento das chamadas (no lugar da rede) ---------- */

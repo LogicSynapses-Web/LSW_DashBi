@@ -194,7 +194,7 @@ function edMontarTela(){
   ov.className = 'ed-overlay' + (ed.leitura ? ' ed-modo-leitura' : '') + (ed.def.menu === 'esquerda' ? ' menu-esquerda' : '');
   const subtitulo = ed.leitura
     ? `${ed.rel.publicado_em ? 'Publicado em ' + new Date(ed.rel.publicado_em).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : ''}`
-    : `Base: <b>${estEsc(ed.base ? ed.base.nome : '—')}</b> · ${ed.base && ed.base.fonte === 'csat' ? 'ligada ao banco (Painel CSAT)' : ed.arquivos.length + ' dia(s) de dados'}`;
+    : `Base: <b>${estEsc(ed.base ? ed.base.nome : '—')}</b> · ${ed.base && ed.base.fonte === 'csat' ? 'ligada ao banco (Painel CSAT)' : ed.base && ed.base.fonte === 'quadro' ? 'ligada ao Quadro (sempre atualizada)' : ed.arquivos.length + ' dia(s) de dados'}`;
   ov.innerHTML = `
     <header class="ed-top">
       <button class="btn-icon" onclick="edFechar()" title="${ed.leitura ? 'Fechar o relatório' : 'Voltar ao Estúdio'}">${edIcone(ed.leitura ? '<path d="M18 6L6 18M6 6l12 12"/>' : '<path d="M15 18l-6-6 6-6"/>', 20)}</button>
@@ -836,9 +836,9 @@ const edRotuloColuna = nome => { const c = (ed.colunasOriginais || ed.base.colun
 
 /* ---------------- relações entre bases (etapa E5) ---------------- */
 async function edAbrirRelacao(){
-  if (ed.base.fonte === 'csat') { showToast('A base ligada ao banco (Painel CSAT) ainda não aceita relações.', 'erro'); return; }
+  if (ed.base.fonte === 'csat' || ed.base.fonte === 'quadro') { showToast('A base ligada ao banco ainda não aceita relações.', 'erro'); return; }
   let bases;
-  try { bases = (await estApi('GET', '/api/estudio/bases')).filter(b => b.id !== ed.base.id && b.fonte !== 'csat'); }
+  try { bases = (await estApi('GET', '/api/estudio/bases')).filter(b => b.id !== ed.base.id && b.fonte !== 'csat' && b.fonte !== 'quadro'); }
   catch (erro) { showToast(erro.message, 'erro'); return; }
   if (!bases.length) { showToast('Não há outra base para relacionar. Crie uma na aba Bases de dados.', 'erro'); return; }
   ed._basesParaRel = bases;

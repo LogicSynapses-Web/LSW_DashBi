@@ -274,7 +274,9 @@ function estHtmlLista(){
       <td class="num">${estNum(b.resumo.linhas)}</td>
       <td class="num">${b.resumo.bytes ? estMb(b.resumo.bytes) : '—'}</td>
       <td>${b.resumo.ultima_carga ? new Date(b.resumo.ultima_carga).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '—'}</td>
-      <td><div class="row-actions">${b.fonte === 'csat'
+      <td><div class="row-actions">${b.fonte === 'quadro'
+        ? '<span class="badge badge-on" title="Lê o Quadro direto do banco (sempre atualizada); os dados entram pelas cargas do Quadro">Ligada ao Quadro</span>'
+        : b.fonte === 'csat'
         ? '<span class="badge badge-on" title="Lê as avaliações do Painel CSAT direto do banco (um mês por vez); os dados entram pela importação do Painel CSAT">Ligada ao banco</span>'
         : `<button class="btn btn-primary btn-small" style="width:auto" onclick="estCarregarDados(${b.id})">Carregar dados</button>`}</div></td>
     </tr>`).join('');

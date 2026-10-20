@@ -363,7 +363,7 @@ function qdRender(){
   alvo.innerHTML = `
     ${qd.aba === 'quadro' && qd.func.length ? `<div class="qd-barra-topo">${qdHtmlFiltros()}</div>` : ''}
     <div id="qd-corpo"></div>`;
-  ({ quadro: qdRenderQuadro, painel: qpRender, solicitacoes: qsRenderLista, modelos: qmRender, cargas: qdRenderCargas, vinculos: qdRenderVinculos })[qd.aba]();
+  ({ quadro: qdRenderQuadro, painel: qeRenderPainel, solicitacoes: qsRenderLista, modelos: qmRender, cargas: qdRenderCargas, vinculos: qdRenderVinculos, escalas: qxRender })[qd.aba]();
   qdAtualizarBadge();
 }
 // Filtros na linha das abas: fechados = botão "Filtros"; abertos = as listas ao lado + "›" para recolher

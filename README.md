@@ -43,7 +43,7 @@ Qualquer servidor estático na pasta, por exemplo a extensão Live Server do VS 
 | `style.css`, `estudio.css`, `lsw.css` | aparência (o `lsw.css` traz as paletas aurora, brasa e oceano) |
 | `script.js` | portal: login, relatórios, usuários, painel CSAT, configurações |
 | `estudio.js`, `estudio-editor.js`, `estudio-visuais.js`, `estudio-dax.js` | Estúdio: bases, editor, visuais e medidas DAX |
-| `quadro-base.js`, `quadro.js`, `quadro-painel.js`, `quadro-solicitacoes.js`, `quadro-modelos.js`, `quadro-estudio.js`, `quadro.css` | Quadro: cargas, quadro atual, painel, solicitações, modelos e envio ao Estúdio |
+| `quadro-base.js`, `quadro.js`, `quadro-solicitacoes.js`, `quadro-modelos.js`, `quadro-escalas.js`, `quadro-estudio.js`, `quadro.css` | Quadro: cargas, quadro atual, solicitações, modelos, escalas e o painel no Estúdio (base ligada ao Quadro) |
 | `admin-perfis.js` | Administração › Perfis (árvore de permissões) e operações |
 | `lsw-dados.js`, `lsw-demo-api.js` | dados fictícios e servidor de demonstração |
 | `lsw-app.js` | apresentação, tutorial e passo a passo guiado |

@@ -39,6 +39,7 @@ async function vzCarregarDados(){
   const st = edEl('ed-status-dados');
   if (!ed.leitura) await daxConverterMedidasAntigas(); // estudio-dax.js: medidas do formulário antigo → fórmula DAX
   if (ed.base.fonte === 'csat') return vzCarregarDadosCsat(); // E4: base ligada ao banco (avaliações do Painel CSAT)
+  if (ed.base.fonte === 'quadro') return vzCarregarDadosQuadro(); // base ligada ao Quadro (lê o Quadro do banco, sempre atualizado)
   if (!dias.length) { if (st) st.textContent = 'Base sem dados carregados'; return; }
   try {
     if (st) st.textContent = 'Carregando dados…';
@@ -104,7 +105,7 @@ async function vzMontarRelacoes(){
   for (const r of rels) {
     try {
       const info = await vzInfoBaseRel(r.base_id);
-      if (info.base.fonte === 'csat') throw new Error('a base ligada ao banco não pode ser relacionada (ainda)');
+      if (info.base.fonte === 'csat' || info.base.fonte === 'quadro') throw new Error('a base ligada ao banco não pode ser relacionada (ainda)');
       if (!vzColunaOriginal(r.coluna)) throw new Error(`a coluna ${r.coluna} não existe mais nesta base`);
       const diasR = info.arquivos.slice(-120);
       if (!diasR.length) throw new Error(`a base ${info.base.nome} não tem dados`);
@@ -228,6 +229,35 @@ async function vzCarregarDadosCsat(mes){
   } catch (erro) {
     if (st) st.textContent = 'Erro ao carregar as avaliações';
     showToast('Erro ao carregar as avaliações do banco: ' + erro.message, 'erro');
+  }
+}
+
+// Base "ligada ao Quadro" (19/10/2026): lê o Quadro do banco e monta uma linha por pessoa (quadro-estudio.js · qeLinha).
+// O dia da base é o da última carga do DPO; o calendário (CALENDARIO, FAIXAS) é montado em cima, como numa base de arquivos.
+async function vzCarregarDadosQuadro(){
+  const st = edEl('ed-status-dados');
+  ed.dadosProntos = false;
+  try {
+    if (st) st.textContent = 'Lendo o Quadro…';
+    await Promise.all([estDuck(), carregarLib(LIB_ECHARTS)]);
+    const r = await estApi('GET', ed.leitura ? `/api/estudio/publicados/${ed.rel.id}/quadro` : '/api/estudio/quadro/dados');
+    if (!r.data_base) { if (st) st.textContent = 'O Quadro ainda não foi carregado'; return; }
+    const regras = r.escalas || QX_PADRAO; // Quadro › Escalas (sem nada gravado: as de fábrica)
+    const linhas = (r.funcionarios || []).map(f => qeLinha(f, r.data_base, regras));
+    // colunas sempre as da versão atual do sistema (ex.: os pesos das escalas), mesmo antes de "Preparar no Estúdio" de novo
+    ed.base.colunas = [...ed.base.colunas.filter(c => !c._rel && !QE_COLUNAS.some(q => q.nome === c.nome)), ...QE_COLUNAS.map(c => ({ ...c, ...(ed.base.colunas.find(x => x.nome === c.nome) || {}) }))];
+    ed.colunasOriginais = null;
+    await qeMontarTabela(linhas, 'quadro_ligado');
+    await estSql('create or replace view principal as select * from quadro_ligado');
+    ed.arquivos = [{ dia: r.data_base, linhas: linhas.length, bytes: 0 }]; // o calendário usa o dia da base como "último dia"
+    await vzMontarRelacoes();
+    ed.dadosProntos = true;
+    const st2 = edEl('ed-status-dados');
+    if (st2) st2.textContent = `${estNum(linhas.length)} pessoas · Quadro de ${estDataBr(r.data_base)} (ligado ao Quadro)`;
+    vzRenderTodos();
+  } catch (erro) {
+    if (edEl('ed-status-dados')) edEl('ed-status-dados').textContent = 'Erro ao ler o Quadro';
+    showToast('Erro ao ler o Quadro: ' + erro.message, 'erro');
   }
 }
 

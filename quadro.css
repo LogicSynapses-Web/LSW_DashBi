@@ -209,45 +209,12 @@
 .qs-acoes{ display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap; }
 .qs-btn-cancelar{ margin-right:auto; }
 
-/* ---------- aba Painel ---------- */
-.qp-barra{ display:flex; align-items:center; gap:18px; flex-wrap:wrap; margin-bottom:6px; }
-.qp-barra label{ display:flex; align-items:center; gap:8px; font-size:calc(13px * var(--escala-fonte)); color:var(--text-dim); }
-.qp-barra select, .qp-barra input{ padding:7px 10px; border-radius:8px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font:inherit; font-size:calc(13px * var(--escala-fonte)); outline:none; }
-.qp-barra select option{ background:var(--surface); color:var(--text); }
-.qp-estudio{ margin-left:auto; display:flex; align-items:center; gap:8px; }
-.qp-titulo{ font-size:calc(12px * var(--escala-fonte)); text-transform:uppercase; letter-spacing:.05em; color:var(--text-faint); font-weight:500; margin:18px 0 10px; }
-.qp-cards{ grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:12px; margin-bottom:6px; }
-.qp-card{ text-align:left; color:var(--text); font:inherit; display:flex; flex-direction:column; cursor:pointer; }
-.qp-card:hover:not(:disabled){ border-color:var(--text-faint); }
-.qp-card:disabled{ cursor:default; }
-.qp-card .value{ font-size:calc(24px * var(--escala-fonte)); }
-.qp-duas{ display:grid; grid-template-columns:minmax(0, 3fr) minmax(0, 2fr); gap:16px; margin:16px 0; }
-.qp-painel{ padding:16px 18px; margin-bottom:16px; }
-.qp-duas .qp-painel{ margin-bottom:0; }
-.qp-painel-topo{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:12px; }
-.qp-painel-topo h4{ font-size:calc(14.5px * var(--escala-fonte)); }
-.qp-grafico{ position:relative; height:240px; }
-.qp-tabela{ max-height:calc(100vh - 260px); overflow:auto; }
-.qp-tabela td, .qp-tabela th{ padding:8px 10px; font-size:calc(13px * var(--escala-fonte)); }
-.qp-tabela tfoot td{ border-top:1px solid var(--border); font-weight:600; padding:10px; font-size:calc(13px * var(--escala-fonte)); }
-.qp-num{ border:none; background:none; color:var(--text); font:inherit; cursor:pointer; padding:2px 6px; border-radius:5px; }
-.qp-num:hover{ background:var(--accent-soft); color:var(--accent-light); }
-.qp-dpowfm td{ padding:9px 8px; }
-.qp-dif{ color:var(--danger); font-weight:600; }
-.qp-nota{ font-size:calc(12.5px * var(--escala-fonte)); color:var(--text-dim); margin-top:10px; }
-.qp-nota a{ color:var(--accent-light); text-decoration:none; }
-.qp-lista{ max-height:60vh; }
-.qp-mudou{ font-size:calc(11.5px * var(--escala-fonte)); color:var(--warning); background:var(--warning-soft); padding:2px 8px; border-radius:10px; cursor:help; white-space:nowrap; }
-.qp-tipo{ font-size:calc(10.5px * var(--escala-fonte)); text-transform:none; letter-spacing:0; padding:2px 8px; border-radius:10px; margin-left:6px; font-weight:500; white-space:nowrap; }
-.qp-tipo-foto{ background:var(--success-soft); color:var(--success); }
-.qp-tipo-real{ background:var(--surface-3); color:var(--text-dim); }
-.qp-tipo-projecao{ background:var(--qd-info-soft); color:var(--qd-info); }
-.qp-diaadia{ max-height:420px; }
-.qp-diaadia tbody tr{ cursor:pointer; }
-.qp-diaadia tbody tr:hover td{ background:var(--surface-2); }
-.qp-diaadia tr.qp-linha-projecao td{ color:var(--text-dim); }
-.qp-diaadia td:first-child{ white-space:nowrap; }
-@media (max-width: 1000px){ .qp-duas{ grid-template-columns:1fr; } }
+/* ---------- Quadro › Painel: atalhos para o PAINEL DO QUADRO do Estúdio (20/10/2026) ---------- */
+.qe-painel{ padding:22px 24px; max-width:760px; display:flex; flex-direction:column; gap:12px; }
+.qe-painel h3{ font-size:calc(17px * var(--escala-fonte)); }
+.qe-painel p{ font-size:calc(14px * var(--escala-fonte)); line-height:1.5; }
+.qe-aviso{ padding:10px 14px; border-radius:10px; border:1px solid var(--warning); }
+.qe-painel-botoes{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
 
 /* ---------- ficha do funcionário ---------- */
 .qd-modal{ max-width:980px; }
@@ -336,3 +303,20 @@
 /* Aviso: dados do protótipo neste navegador → enviar ao banco (16/10/2026) */
 .qd-migrar{ display:flex; align-items:center; justify-content:space-between; gap:16px; padding:14px 16px; margin-bottom:14px; border-color:var(--accent); background:var(--accent-soft); }
 .qd-migrar .btn{ width:auto; white-space:nowrap; }
+
+/* ---------------- Quadro › Escalas (19/10/2026) ---------------- */
+.qx{ display:flex; flex-direction:column; gap:12px; flex:1 1 0; min-height:0; }
+.qx-barra{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:10px 16px; }
+.qx-lid{ display:flex; align-items:center; gap:8px; font-size:calc(13px * var(--escala-fonte)); color:var(--text-dim); }
+.qx-lid input{ width:320px; max-width:60vw; }
+.qx-botoes{ margin-left:auto; display:flex; gap:8px; }
+.qx-aviso{ display:flex; flex-direction:column; gap:6px; padding:10px 14px; border-radius:10px; border:1px solid var(--warning); background:var(--surface); font-size:calc(13px * var(--escala-fonte)); }
+.qx-aviso .btn{ width:auto; margin:2px 4px 2px 0; }
+.qx-grade{ display:flex; flex-direction:column; gap:12px; flex:1 1 0; min-height:0; }
+.qx-tabela{ width:100%; }
+.qx-tabela td, .qx-tabela th{ white-space:nowrap; }
+.qx-tabela input[type=text], .qx-tabela input[type=number], .qx-tabela select{ padding:4px 6px; font-size:calc(13px * var(--escala-fonte)); }
+.qx-tabela input, .qx-tabela select{ width:auto !important; min-width:0; }
+.qx-tabela .qx-nome{ width:90px !important; } .qx-tabela .qx-apelidos{ width:120px !important; } .qx-tabela .qx-hora{ width:72px !important; }
+.qx-dia{ text-align:center; } .qx-peso{ width:56px; text-align:center; }
+@media (max-width: 1100px){ .qx-grade{ grid-template-columns:1fr; } }

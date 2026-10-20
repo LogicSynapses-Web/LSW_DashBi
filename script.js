@@ -81,10 +81,10 @@ function doLogout(){
 
 
 /* ---------------- nav / theme -------------- */
-// sub = subseção (Quadro: quadro · painel · solicitacoes · cargas · vinculos · modelos [Administração › Tickets])
-const QD_SUBSECOES = { quadro: 'Quadro atual', painel: 'Painel', solicitacoes: 'Solicitações', cargas: 'Cargas', vinculos: 'Vínculos' };
+// sub = subseção (Quadro: quadro · painel · solicitacoes · cargas · vinculos · escalas · modelos [Administração › Tickets])
+const QD_SUBSECOES = { quadro: 'Quadro atual', painel: 'Painel', solicitacoes: 'Solicitações', cargas: 'Cargas', vinculos: 'Vínculos', escalas: 'Escalas' };
 // Permissão de cada subseção do Quadro (mesmas chaves do data-perm do menu e da árvore de Perfis)
-const QD_PERM_SUB = { quadro: 'quadro.atual', painel: 'quadro.painel', solicitacoes: 'quadro.solicitacoes,quadro.analisar', cargas: 'quadro.cargas', vinculos: 'quadro.vinculos', modelos: 'admin.tickets' };
+const QD_PERM_SUB = { quadro: 'quadro.atual', painel: 'quadro.painel', solicitacoes: 'quadro.solicitacoes,quadro.analisar', cargas: 'quadro.cargas', vinculos: 'quadro.vinculos', escalas: 'quadro.escalas', modelos: 'admin.tickets' };
 // semRecarregar: atalho dentro do próprio Quadro — só troca a subseção, sem reler os dados do armazenamento
 function switchView(view, sub, semRecarregar){
   ['dashboard','reports','users','estudio','quadro','perfis','operacoes','settings','apresentacao','tutorial'].forEach(v=>{
@@ -331,6 +331,7 @@ function renderDiscontinued(){
                 <div class="row-actions">
                   <button class="btn btn-ghost btn-small" onclick="openViewer(${r.id})">Visualizar</button>
                   <button class="btn btn-ghost btn-small" onclick="setReportActive(${r.id}, true)">Reativar</button>
+                  <button class="btn btn-danger-ghost btn-small" onclick="excluirRelatorio(${r.id})">Excluir</button>
                 </div>
               </td>
             </tr>
@@ -369,6 +370,17 @@ async function setReportActive(id, ativo){
   } catch (erro) {
     showToast('Erro de conexão ao atualizar o relatório.', 'erro');
   }
+}
+// Excluir de vez: só aparece para os descontinuados (o servidor também confere)
+async function excluirRelatorio(id){
+  const r = reports.find(x => x.id === id);
+  if (!confirm(`Excluir de vez o relatório "${r.title}"?\n\nNão dá para desfazer.${r.tipo === 'estudio' ? '\nO relatório continua no Estúdio e pode ser publicado de novo.' : ''}`)) return;
+  try {
+    const j = await apiJson('DELETE', `/api/relatorios/${id}`);
+    showToast(j.mensagem || 'Relatório excluído.');
+    await carregarRelatorios();
+    if (document.getElementById('modal-discontinued').classList.contains('active')) renderDiscontinued();
+  } catch (erro) { showToast(erro.message, 'erro', 5000); }
 }
 
 function openReportModal(){
@@ -640,7 +652,8 @@ function renderUsers(){
           <!-- Resetar senha: em destaque (laranja) quando o usuário pediu -->
           <button class="btn ${u.resetPedido?'btn-primary':'btn-ghost'} btn-small" style="width:auto;" onclick="abrirResetSenha('${u.id}')">Resetar senha</button>
           <button class="btn btn-ghost btn-small" onclick="editUser('${u.id}')">Editar</button>
-          <button class="btn ${u.active?'btn-danger-ghost':'btn-ghost'} btn-small" onclick="toggleUserStatus('${u.id}')">${u.active?'Desativar':'Ativar'}</button>        </div>
+          <button class="btn ${u.active?'btn-danger-ghost':'btn-ghost'} btn-small" onclick="toggleUserStatus('${u.id}')">${u.active?'Desativar':'Ativar'}</button>
+          ${!u.active && pode('usuarios.gerenciar') ? `<button class="btn btn-danger-ghost btn-small" onclick="excluirUsuario('${u.id}')">Excluir</button>` : ''}</div>
       </td>
     </tr>
   `).join('');
@@ -907,6 +920,16 @@ async function toggleUserStatus(id){
   } catch (erro) {
     showToast('Erro de conexão ao atualizar status.', 'erro');
   }
+}
+// Excluir de vez: só para quem já está desativado (o servidor também confere e não deixa excluir a própria conta)
+async function excluirUsuario(id){
+  const u = users.find(x => x.id === id);
+  if (!confirm(`Excluir de vez o usuário ${u.name} (${u.email})?\n\nO login dele deixa de existir. Não dá para desfazer.`)) return;
+  try {
+    await apiJson('DELETE', `/api/usuarios/${id}`);
+    showToast(`Usuário ${u.name} excluído.`);
+    carregarUsuarios();
+  } catch (erro) { showToast(erro.message, 'erro', 5000); }
 }
 /* ---------------- painel CSAT (versão 2.0) ---------------- */
 // Tela própria do sistema (não é iframe). Origem: FrontEnd/dashboards/csat.html.
